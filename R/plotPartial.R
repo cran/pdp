@@ -3,21 +3,27 @@
 #' Plots partial dependence functions using \code{lattice} graphics.
 #'
 #' @param x An object of class{"partial_1d"} or \code{"partial_2d"}.
-#' @param smooth Logical indicating whether or nor to overlay a loess smoother.
+#' @param smooth Logical indicating whether or not to overlay a LOESS smoother.
 #'   Default is \code{FALSE}.
+#' @param rug Logical indicating whether or not to include a rug representation
+#'   to the plot. If \code{TRUE} the user must supply the original training data
+#'   via the \code{train} option. Default is \code{FALSE}.
+#' @param chull Logical indicating whether or not to draw the convex hull
+#'   around the first two variables. If \code{TRUE} the user must supply the
+#'   original training data via the \code{train} option.Default is \code{FALSE}.
 #' @param contour Logical indicating whether or not to use
 #'   \code{lattice::levelplot} (\code{TRUE}) or \code{lattice::wireframe}
 #'   (\code{FALSE}). Default is \code{TRUE}.
-#' @param rug Logical indicating whether or not to include a rug representation
-#'   to the plot. If \code{TRUE} the user must supply the original data.
-#' @param chull Logical indicating whether or not to draw the convex hull
-#'   around the first two variables. Default is \code{FALSE}.
 #' @param number Integer specifying the number of conditional intervals for the
 #'   panel variables.
-#' @param overlap Proportion
+#' @param overlap The fraction of overlap of the conditioning variables. See
+#'   \code{?graphics::co.intervals} and \code{?lattice::equal.count} for further
+#'   details.
 #' @param train Data frame containing the original training data. Only
 #'   required if \code{rug = TRUE} or \code{chull = TRUE}.
 #' @param col.regions Color vector to be used if \code{contour} is \code{TRUE}.
+#'   Defaults to the wonderful Matplotlib 'viridis' color map provided by the
+#'   \code{viridis} package. See \code{?viridis::viridis} for details.
 #' @param ... Additional optional arguments to be passed onto \code{levelplot},
 #'   \code{wireframe}, or \code{xyplot}.
 #'
@@ -33,8 +39,8 @@ plotPartial <- function(x, ...) {
 
 #' @rdname plotPartial
 #' @export
-plotPartial.partial <- function(x, smooth = FALSE, contour = TRUE, rug = FALSE,
-                                chull = FALSE, number = 4, overlap = 0.1,
+plotPartial.partial <- function(x, smooth = FALSE, rug = FALSE, chull = FALSE,
+                                contour = TRUE, number = 4, overlap = 0.1,
                                 train = NULL, col.regions = viridis::viridis,
                                 ...) {
 
@@ -93,7 +99,7 @@ plotPartial.partial <- function(x, smooth = FALSE, contour = TRUE, rug = FALSE,
                     if (is.null(train)) {
                       stop("The training data must be supplied for convex hull display.")
                     }
-                    hpts <- grDevices::chull(train[names(x)[1L:2L]])
+                    hpts <- grDevices::chull(stats::na.omit(train[names(x)[1L:2L]]))
                     hpts <- c(hpts, hpts[1])
                     panel.lines(train[hpts, names(x)[1L:2L]],
                                 col = "black")

@@ -3,7 +3,7 @@
 #' Compute partial dependence functions for various model fitting objects.
 #'
 #' @param object A fitted model object.
-#' @param pred.var Character string giving the names of the independent
+#' @param pred.var Character string giving the names of the predictor
 #'   variables of interest.
 #' @param pred.grid Data frame containing the joint values of the variables
 #'   listed in \code{pred.var}.
@@ -12,22 +12,24 @@
 #'   \code{pred.grid} is not supplied). If left \code{NULL}, it will default to
 #'   minimum between \code{51} and the number of unique data points for each of
 #'   the continuous independent variables listed in \code{pred.var}.
-#' @param super.type Character string specifying the type of supervised learning.
-#'   Current options are \code{"regression"} or \code{"classification"}. For tree-
-#'   based models (e.g., \code{"rpart"}), the function can usually extract the
-#'   necessary information from \code{object}.
+#' @param type Character string specifying the type of supervised learning.
+#'   Current options are \code{"regression"} or \code{"classification"}. For some
+#'   objects (e.g., tree-based models like \code{"rpart"}), \code{partial} can usually
+#'   extract the necessary information from \code{object}.
 #' @param which.class Integer specifying which column of the matrix of predicted
 #'   probabilities to use as the "focus" class. Default is to use the first class.
-#' @param rug Logical indicating whether or not to include a rug representation
-#'   to the plot. If \code{TRUE} the user must supply the original data.
-#' @param chull Logical indicating wether or not to restrict the first
-#'   two variables in \code{pred.var} to lie within the convex hull of their
-#'   data points. Default is \code{FALSE}.
-#' @param train An optional data frame containing the original training
-#'   data.
 #' @param plot Logical indicating whether to return a data frame containing the
 #'   partial dependence values (\code{FALSE}) or plot the partial dependence
 #'   function directly (\code{TRUE}). Default is \code{FALSE}.
+#' @param smooth Logical indicating whether or not to overlay a LOESS smoother.
+#'   Default is \code{FALSE}.
+#' @param rug Logical indicating whether or not to include a rug representation
+#'   to the plot. Only used when \code{plot = TRUE}. Default is \code{FALSE}.
+#' @param chull Logical indicating wether or not to restrict the first
+#'   two variables in \code{pred.var} to lie within the convex hull of their
+#'   data points; this effects \code{pred.grid}. Default is \code{FALSE}.
+#' @param train An optional data frame containing the original training
+#'   data. This may be required depending on the class of \code{object}.
 #' @param ... Additional optional arguments to be passed onto \code{aaply}.
 #'
 #' @rdname partial
@@ -40,8 +42,9 @@ partial <- function(object, ...) {
 #' @rdname partial
 #' @export
 partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
-                            super.type, which.class = 1L, rug = FALSE, 
-                            chull = FALSE, train, plot = FALSE, ...) {
+                            type, which.class = 1L, plot = FALSE,
+                            smooth = FALSE, rug = FALSE, chull = FALSE, train,
+                            ...) {
 
   # Data frame
   if (missing(train)) {
@@ -49,7 +52,10 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
       train <- object@data@get("input")
     } else {
       if (is.null(object$call$data)) {
-        stop("No data found.")
+        stop(paste0("The training data could not be extracted from ",
+                    deparse(substitute(object)), ". Please supply the raw ",
+                    "training data using the `train` argument in the call ",
+                    "to `partial`."))
       } else {
         train <- eval(object$call$data)
       }
@@ -61,8 +67,6 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
     pred.val <- lapply(pred.var, function(x) {
       if (is.factor(train[[x]])) {
         levels(train[[x]])
-      #} #else if (missing(grid.resolution)) {
-        #sort(unique(newdata[[x]]))
       } else {
         if (is.null(grid.resolution)) {
           grid.resolution <- min(length(unique(train[[x]])), 51)
@@ -80,8 +84,8 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
   if (chull) {
     if (length(pred.var) >= 2 && is.numeric(train[[1L]]) &&
         is.numeric(train[[2L]])) {
-      X <- data.matrix(train[pred.var[1L:2L]])
-      Y <- data.matrix(pred.grid[1L:2L])
+      X <- stats::na.omit(data.matrix(train[pred.var[1L:2L]]))
+      Y <- stats::na.omit(data.matrix(pred.grid[1L:2L]))
       hpts <- grDevices::chull(X)
       hpts <- c(hpts, hpts[1])
       keep <- mgcv::in.out(X[hpts, ], Y)
@@ -89,13 +93,26 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
     }
   }
 
-  # # Restore class information
-  # for (name in names(pred.grid)) {
-  #   if (is.integer(train[[name]])) {
-  #     pred.grid[[pred.var]] <- as.intergar(pred.grid[[pred.var]])
-  #   } else if (is.numeric(train[[name]])) {
-  #     pred.grid[[pred.var]] <- as.numeric(pred.grid[[pred.var]])
+  # # Make sure class information and factor levels have been preserved
+  # if (check.class) {
+  #   for (name in names(pred.grid)) {
+  #     pred.grid[[pred.var]] <- as(pred.grid[[pred.var]],
+  #                                 Class = class(train[[pred.var]]))
+  #     if (is.integer(train[[name]])) {
+  #       pred.grid[[pred.var]] <- as.integer(pred.grid[[pred.var]])
+  #     } else if (is.numeric(train[[name]])) {
+  #       pred.grid[[pred.var]] <- as.numeric(pred.grid[[pred.var]])
   #
+  #     } else if (is.factor(train[[name]]))
+  #       if (is.ordered()) {
+  #         pred.grid[[pred.var]] <-
+  #           ordered(pred.grid[[pred.var]],
+  #                   levels = levels(pred.grid[[pred.var]]))
+  #       } else {
+  #         pred.grid[[pred.var]] <-
+  #           factor(pred.grid[[pred.var]],
+  #                  levels = levels(pred.grid[[pred.var]]))
+  #       }
   #   } else {
   #     class(pred.grid[[name]]) <- class(train[[name]])
   #   }
@@ -104,21 +121,23 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
   # # Sanity check!
   # stopifnot(all.equal(sapply(pred.grid, class),
   #                     sapply(train[pred.var], class)))
+  # }
 
   # Determine the type of supervised learning used
-  if (missing(super.type)) {
-    super.type <- superType(object)
+  if (missing(type)) {
+    type <- superType(object)
   } else {
-    if (!(super.type %in% c("regression", "classification"))) {
-      stop("Only regression and classification are supported.")
+    if (!(type %in% c("regression", "classification"))) {
+      stop(paste(deparse(substitute(type)), 'is not a valid value for `type`.',
+                 'Please select either "regression" or "classification".'))
     }
   }
 
   # Calculate partial dependence values
-  if (super.type == "regression") {
+  if (type == "regression") {
     pd_df <- pdRegression(object, pred.var = pred.var, pred.grid = pred.grid,
                           train = train, ...)
-  } else if (super.type == "classification") {
+  } else if (type == "classification") {
     pd_df <- pdClassification(object, pred.var = pred.var,
                               pred.grid = pred.grid, which.class = which.class,
                               train = train, ...)
@@ -133,7 +152,8 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
 
   # Plot partial dependence function (if requested)
   if (plot) {
-    print(plotPartial(pd_df, rug = rug, train = train, col.regions = viridis::viridis))
+    print(plotPartial(pd_df, smooth = smooth, rug = rug, train = train,
+                      col.regions = viridis::viridis))
   } else {
     # Return partial dependence values
     pd_df

@@ -27,6 +27,13 @@ superType <- function(object) {
 
 
 #' @keywords internal
+superType.default <- function(object) {
+  warning('`type` could not be determined; assuming `type = "regression"`')
+  "regression"
+}
+
+
+#' @keywords internal
 superType.bagging <- function(object) {
   "classification"
 }
@@ -39,11 +46,23 @@ superType.boosting <- function(object) {
 
 
 #' @keywords internal
+superType.cubist <- function(object) {
+  "regression"
+}
+
+
+#' @keywords internal
+superType.C5.0 <- function(object) {
+  "classification"
+}
+
+
+#' @keywords internal
 superType.earth <- function(object) {
-  if (!is.null(object$glm.list) && 
+  if (!is.null(object$glm.list) &&
       object$glm.list[[1L]]$family$family == "binomial") {
     "classification"
-  } else if (is.null(object$glm.list) || 
+  } else if (is.null(object$glm.list) ||
              object$glm.list[[1L]]$family$family == "gaussian") {
     "regression"
   } else {
@@ -55,6 +74,12 @@ superType.earth <- function(object) {
 #' @keywords internal
 superType.lm <- function(object) {
   # FIXME: What about multivariate response models?
+  "regression"
+}
+
+
+#' @keywords internal
+superType.nls <- function(object) {
   "regression"
 }
 
@@ -141,14 +166,14 @@ superType.gbm <- function(object) {
 superType.xgb.Booster <- function(object) {
   if (object$params$objective == "reg:linear") {
     "regression"
-  } else if (object$params$objective %in% 
+  } else if (object$params$objective %in%
              c("binary:logistic", "multi:softprob")) {
-    # FIXME: Throw a warning if objective function is classification, but does 
+    # FIXME: Throw a warning if objective function is classification, but does
     # not return the predicted probabilities (e.g., "binary:logitraw").
     "classification"
-  } else if (object$params$objective %in% 
+  } else if (object$params$objective %in%
              c("reg:logistic", "binary:logitraw", "multi:softmax")) {
-    stop(paste0("For classification, switch to an objective function", 
+    stop(paste0("For classification, switch to an objective function",
                 "that returns the predicted probabilities."))
   } else {
     "other"
@@ -162,7 +187,7 @@ superType.svm <- function(object) {
     "regression"
   } else {
     "classification"
-  } 
+  }
 }
 
 
