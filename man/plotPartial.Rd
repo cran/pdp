@@ -8,32 +8,35 @@
 plotPartial(x, ...)
 
 \method{plotPartial}{partial}(x, smooth = FALSE, rug = FALSE,
-  chull = FALSE, contour = TRUE, number = 4, overlap = 0.1,
-  train = NULL, col.regions = viridis::viridis, ...)
+  chull = FALSE, levelplot = TRUE, contour = FALSE, number = 4,
+  overlap = 0.1, train = NULL, col.regions = viridis::viridis, ...)
 }
 \arguments{
-\item{x}{An object of class{"partial_1d"} or \code{"partial_2d"}.}
+\item{x}{An object that inherits from the \code{"partial"} class.}
 
-\item{...}{Additional optional arguments to be passed onto \code{levelplot},
-\code{wireframe}, or \code{xyplot}.}
+\item{...}{Additional optional arguments to be passed onto \code{dotplot},
+\code{levelplot}, \code{xyplot}, or \code{wireframe}.}
 
-\item{smooth}{Logical indicating whether or not to overlay a LOESS smoother.
+\item{smooth}{Logical indicating whether or not to overlay a LOESS smooth.
 Default is \code{FALSE}.}
 
-\item{rug}{Logical indicating whether or not to include a rug representation
-to the plot. If \code{TRUE} the user must supply the original training data
-via the \code{train} option. Default is \code{FALSE}.}
+\item{rug}{Logical indicating whether or not to include rug marks on the
+predictor axes. Only used when \code{plot = TRUE}. Default is \code{FALSE}.}
 
-\item{chull}{Logical indicating whether or not to draw the convex hull
-around the first two variables. If \code{TRUE} the user must supply the
-original training data via the \code{train} option.Default is \code{FALSE}.}
+\item{chull}{Logical indicating wether or not to restrict the first
+two variables in \code{pred.var} to lie within the convex hull of their
+data points; this effects \code{pred.grid}. Default is \code{FALSE}.}
 
-\item{contour}{Logical indicating whether or not to use
-\code{lattice::levelplot} (\code{TRUE}) or \code{lattice::wireframe}
-(\code{FALSE}). Default is \code{TRUE}.}
+\item{levelplot}{Logical indicating whether or not to use a false color level
+plot (\code{TRUE}) or a 3-D surface (\code{FALSE}). Default is \code{TRUE}.}
 
-\item{number}{Integer specifying the number of conditional intervals for the
-panel variables.}
+\item{contour}{Logical indicating whether or not to add contour lines to the
+level plot. Only used when \code{levelplot = TRUE}. Default is
+\code{FALSE}.}
+
+\item{number}{Integer specifying the number of conditional intervals to use
+for the continuous panel variables. See \code{?graphics::co.intervals} and
+\code{?lattice::equal.count} for further details.}
 
 \item{overlap}{The fraction of overlap of the conditioning variables. See
 \code{?graphics::co.intervals} and \code{?lattice::equal.count} for further
@@ -42,11 +45,16 @@ details.}
 \item{train}{Data frame containing the original training data. Only
 required if \code{rug = TRUE} or \code{chull = TRUE}.}
 
-\item{col.regions}{Color vector to be used if \code{contour} is \code{TRUE}.
-Defaults to the wonderful Matplotlib 'viridis' color map provided by the
-\code{viridis} package. See \code{?viridis::viridis} for details.}
+\item{col.regions}{Color vector to be used if \code{levelplot} is
+\code{TRUE}. Defaults to the wonderful Matplotlib 'viridis' color map
+provided by the \code{viridis} package. See \code{?viridis::viridis} for
+details.}
 }
 \description{
 Plots partial dependence functions using \code{lattice} graphics.
+}
+\examples{
+# See ?partial for examples
+?partial
 }
 
