@@ -1,6 +1,7 @@
 #' Partial Dependence Functions
 #'
-#' Compute partial dependence functions for various model fitting objects.
+#' Compute partial dependence functions (i.e., marginal effects) for various 
+#' model fitting objects.
 #'
 #' @param object A fitted model object of appropriate class (e.g.,
 #'   \code{"gbm"}, \code{"lm"}, \code{"randomForest"}, etc.).
@@ -31,7 +32,7 @@
 #'   predictor axes. Only used when \code{plot = TRUE}. Default is \code{FALSE}.
 #' @param chull Logical indicating wether or not to restrict the first
 #'   two variables in \code{pred.var} to lie within the convex hull of their
-#'   data points; this effects \code{pred.grid}. Default is \code{FALSE}.
+#'   training values; this affects \code{pred.grid}. Default is \code{FALSE}.
 #' @param train An optional data frame containing the original training
 #'   data. This may be required depending on the class of \code{object}. For
 #'   objects that do not store a copy of the original training data, this
@@ -49,30 +50,67 @@
 #' @rdname partial
 #' @export
 #' @examples
-#' # Fit a random forest to the airquality data
+#' \dontrun{
+#' #
+#' # Regression example (requires randomForest package to run)
+#' #
+#'
+#' # Fit a random forest to the boston housing data
 #' library(randomForest)
-#' data(airquality)
+#' data (boston)  # load the boston housing data
 #' set.seed(101)  # for reproducibility
-#' ozone.rf <- randomForest(Ozone ~ ., data = airquality, importance = TRUE,
-#'                          na.action = na.omit)
+#' boston.rf <- randomForest(cmedv ~ ., data = boston)
 #'
 #' # Using randomForest's partialPlot function
-#' partialPlot(ozone.rf, pred.data = airquality, x.var = "Temp")
+#' partialPlot(boston.rf, pred.data = boston, x.var = "lstat")
 #'
 #' # Using pdp's partial function
-#' head(partial(ozone.rf, pred.var = "Temp"))  # returns a data frame
-#' partial(ozone.rf, pred.var = "Temp", plot = TRUE, rug = TRUE)
+#' head(partial(boston.rf, pred.var = "lstat"))  # returns a data frame
+#' partial(boston.rf, pred.var = "lstat", plot = TRUE, rug = TRUE)
 #'
 #' # The partial function allows for multiple predictors
-#' partial(ozone.rf, pred.var = c("Temp", "Wind"), grid.resolution = 20,
+#' partial(boston.rf, pred.var = c("lstat", "rm"), grid.resolution = 40,
 #'         plot = TRUE, chull = TRUE, .progress = "text")
 #'
 #' # The plotPartial function offers more flexible plotting
-#' pd <- partial(ozone.rf, pred.var = c("Temp", "Wind"), grid.resolution = 20,
-#'               chull = TRUE)
+#' pd <- partial(boston.rf, pred.var = c("lstat", "rm"), grid.resolution = 40)
 #' plotPartial(pd)  # the default
-#' plotPartial(pd, levelplot = FALSE, zlab = "Ozone", drape = TRUE,
-#'             colorkey = FALSE, screen = list(z = 120, x = -60))
+#' plotPartial(pd, levelplot = FALSE, zlab = "cmedv", drape = TRUE,
+#'             colorkey = FALSE, screen = list(z = -20, x = -60))
+#'
+#' #
+#' # Classification example (requires randomForest package to run)
+#' #
+#'
+#' # Fit a random forest to the Pima Indians diabetes data
+#' data (pima)  # load the boston housing data
+#' set.seed(102)  # for reproducibility
+#' pima.rf <- randomForest(diabetes ~ ., data = pima, na.action = na.omit)
+#'
+#' # Partial dependence of glucose on diabetes test result (neg/pos)
+#' partial(pima.rf, pred.var = c("glucose", "age"), plot = TRUE, chull = TRUE,
+#'         .progress = "text")
+#'
+#' #
+#' # Interface with caret (requires caret package to run)
+#' #
+#'
+#' # Load required packages
+#' library(caret)  # for model training/tuning
+#'
+#' # Set up for 5-fold cross-validation
+#' ctrl <- trainControl(method = "cv", number = 5, verboseIter = TRUE)
+#'
+#' # Tune a support vector machine (SVM) using a radial basis function kerel to
+#' # the Pima Indians diabetes data
+#' set.seed(103)  # for reproducibility
+#' pima.svm <- train(diabetes ~ ., data = pima, method = "svmRadial",
+#'                   prob.model = TRUE, na.action = na.omit, trControl = ctrl,
+#'                   tuneLength = 10)
+#'
+#' # Partial dependence of glucose on diabetes test result (neg/pos)
+#' partial(pima.svm, pred.var = "glucose", plot = TRUE, rug = TRUE)
+#' }
 partial <- function(object, ...) {
   UseMethod("partial")
 }
@@ -89,6 +127,8 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
   if (missing(train)) {
     if (inherits(object, "BinaryTree") || inherits(object, "RandomForest")) {
       train <- object@data@get("input")
+    } else if (inherits(object, "train")) {
+      train <- object$trainingData
     } else {
       if (is.null(object$call$data)) {
         stop(paste0("The training data could not be extracted from ",
@@ -103,38 +143,18 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
 
   # Predictor values of interest
   if (missing(pred.grid)) {
-    pred.val <- lapply(pred.var, function(x) {
-      if (is.factor(train[[x]])) {
-        levels(train[[x]])
-      } else {
-        if (is.null(grid.resolution)) {
-          grid.resolution <- min(length(unique(train[[x]])), 51)
-        }
-        seq(from = min(train[[x]], na.rm = TRUE),
-            to = max(train[[x]], na.rm = TRUE),
-            length = grid.resolution)
-      }
-    })
-    pred.grid <- expand.grid(pred.val)
-    names(pred.grid) <- pred.var
+    pred.grid <- predGrid(object, pred.var = pred.var, train = train,
+                          grid.resolution = grid.resolution)
   }
 
-  # Make sure each column has the correct class, levels, etc.
+  # Make sure each column has the correct class, factor levels, etc.
   if (check.class) {
     pred.grid <- copyClasses(pred.grid, train)
   }
 
   # Restrict grid to covext hull of first two columns
   if (chull) {
-    if (length(pred.var) >= 2 && is.numeric(train[[1L]]) &&
-        is.numeric(train[[2L]])) {
-      X <- stats::na.omit(data.matrix(train[pred.var[1L:2L]]))
-      Y <- stats::na.omit(data.matrix(pred.grid[1L:2L]))
-      hpts <- grDevices::chull(X)
-      hpts <- c(hpts, hpts[1])
-      keep <- mgcv::in.out(X[hpts, ], Y)
-      pred.grid <- pred.grid[keep, ]
-    }
+    pred.grid <- trainCHull(pred.var, pred.grid = pred.grid, train = train)
   }
 
   # Determine the type of supervised learning used
@@ -149,10 +169,10 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
 
   # Calculate partial dependence values
   if (type == "regression") {
-    pd_df <- pdRegression(object, pred.var = pred.var, pred.grid = pred.grid,
+    pd.df <- pdRegression(object, pred.var = pred.var, pred.grid = pred.grid,
                           train = train, ...)
   } else if (type == "classification") {
-    pd_df <- pdClassification(object, pred.var = pred.var,
+    pd.df <- pdClassification(object, pred.var = pred.var,
                               pred.grid = pred.grid, which.class = which.class,
                               train = train, ...)
   } else {
@@ -161,16 +181,16 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
   }
 
   # Create data frame of partial dependence values
-  names(pd_df) <- c(pred.var, "y")
-  class(pd_df) <- c("data.frame", "partial")
+  names(pd.df) <- c(pred.var, "y")
+  class(pd.df) <- c("data.frame", "partial")
 
   # Plot partial dependence function (if requested)
   if (plot) {
-    print(plotPartial(pd_df, smooth = smooth, rug = rug, train = train,
+    print(plotPartial(pd.df, smooth = smooth, rug = rug, train = train,
                       col.regions = viridis::viridis))
   } else {
     # Return partial dependence values
-    pd_df
+    pd.df
   }
 
 }

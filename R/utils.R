@@ -21,7 +21,7 @@ copyClasses <- function(x, y) {
   column.names <- intersect(x.names, y.names)
   for (name in column.names) {
     # Do the classes match?
-    if (!identical(class(x[[name]]), class(y[[name]])) || 
+    if (!identical(class(x[[name]]), class(y[[name]])) ||
         !identical(levels(x[[name]]), levels(y[[name]]))) {
       # Convert to numeric or integer class
       if (is.numeric(y[[name]])) {
@@ -51,7 +51,7 @@ copyClasses <- function(x, y) {
     }
   }
   # Sanity check
-  stopifnot(all.equal(sapply(x[column.names], class), 
+  stopifnot(all.equal(sapply(x[column.names], class),
                       sapply(y[column.names], class)))
   x  # return x with copied classes
 }
@@ -59,11 +59,64 @@ copyClasses <- function(x, y) {
 
 #' @keywords internal
 avgLogit <- function(x, which.class = 1L) {
+  if (is.data.frame(x)) {
+    x <- data.matrix(x)
+  }
   stopifnot(is.matrix(x))  # x should be a nclass by n probability matrix
   eps <- .Machine$double.eps
   mean(log(ifelse(x[, which.class] > 0, x[, which.class], eps)) -
          rowMeans(log(ifelse(x > 0, x, eps))), na.rm = TRUE)
 }
+
+
+#' @keywords internal
+trainCHull <- function(pred.var, pred.grid, train) {
+  if (length(pred.var) >= 2 && is.numeric(pred.grid[[1L]]) &&
+      is.numeric(pred.grid[[2L]])) {
+    X <- stats::na.omit(data.matrix(train[pred.var[1L:2L]]))
+    Y <- stats::na.omit(data.matrix(pred.grid[1L:2L]))
+    hpts <- grDevices::chull(X)
+    hpts <- c(hpts, hpts[1L])
+    keep <- mgcv::in.out(X[hpts, ], Y)
+    pred.grid[keep, ]
+  } else {
+    pred.grid
+  }
+}
+
+
+#' @keywords internal
+predGrid <- function(object, pred.var, train, grid.resolution = NULL) {
+  UseMethod("predGrid")
+}
+
+
+#' @keywords internal
+predGrid.default <- function(object, pred.var, train, grid.resolution = NULL) {
+  pred.val <- lapply(pred.var, function(x) {
+    if (is.factor(train[[x]])) {
+      levels(train[[x]])
+    } else {
+      if (is.null(grid.resolution)) {
+        grid.resolution <- min(length(unique(train[[x]])), 51)
+      }
+      seq(from = min(train[[x]], na.rm = TRUE),
+          to = max(train[[x]], na.rm = TRUE),
+          length = grid.resolution)
+    }
+  })
+  pred.grid <- expand.grid(pred.val)
+  names(pred.grid) <- pred.var
+  pred.grid
+}
+
+
+# TODO (bgreenwell):
+# predGrid.rpart <- NULL
+# predGrid.BinaryTree <- NULL
+# predGrid.ctree <- NULL
+# predGrid.randomForest <- NULL
+# predGrid.RandomForest <- NULL
 
 
 #' @keywords internal
@@ -76,6 +129,18 @@ superType <- function(object) {
 superType.default <- function(object) {
   warning('`type` could not be determined; assuming `type = "regression"`')
   "regression"
+}
+
+
+#' @keywords internal
+superType.train <- function(object) {
+  if (object$modelType == "Classification") {
+    "classification"
+  } else if (object$modelType == "Regression") {
+    "regression"
+  } else {
+    "other"
+  }
 }
 
 
@@ -134,6 +199,9 @@ superType.nls <- function(object) {
 superType.glm <- function(object) {
   if(object$family$family == "binomial") {
     "classification"
+  } else if (object$family$family %in% 
+             c("gaussian", "Gamma", "inverse.gaussian", "poisson")) {
+    "regression"
   } else {
     "other"
   }

@@ -53,7 +53,7 @@ predictor axes. Only used when \code{plot = TRUE}. Default is \code{FALSE}.}
 
 \item{chull}{Logical indicating wether or not to restrict the first
 two variables in \code{pred.var} to lie within the convex hull of their
-data points; this effects \code{pred.grid}. Default is \code{FALSE}.}
+training values; this affects \code{pred.grid}. Default is \code{FALSE}.}
 
 \item{train}{An optional data frame containing the original training
 data. This may be required depending on the class of \code{object}. For
@@ -65,33 +65,71 @@ in \code{pred.grid} has the correct class, levels, etc. Default is
 \code{TRUE}.}
 }
 \description{
-Compute partial dependence functions for various model fitting objects.
+Compute partial dependence functions (i.e., marginal effects) for various 
+model fitting objects.
 }
 \examples{
-# Fit a random forest to the airquality data
+\dontrun{
+#
+# Regression example (requires randomForest package to run)
+#
+
+# Fit a random forest to the boston housing data
 library(randomForest)
-data(airquality)
+data (boston)  # load the boston housing data
 set.seed(101)  # for reproducibility
-ozone.rf <- randomForest(Ozone ~ ., data = airquality, importance = TRUE,
-                         na.action = na.omit)
+boston.rf <- randomForest(cmedv ~ ., data = boston)
 
 # Using randomForest's partialPlot function
-partialPlot(ozone.rf, pred.data = airquality, x.var = "Temp")
+partialPlot(boston.rf, pred.data = boston, x.var = "lstat")
 
 # Using pdp's partial function
-head(partial(ozone.rf, pred.var = "Temp"))  # returns a data frame
-partial(ozone.rf, pred.var = "Temp", plot = TRUE, rug = TRUE)
+head(partial(boston.rf, pred.var = "lstat"))  # returns a data frame
+partial(boston.rf, pred.var = "lstat", plot = TRUE, rug = TRUE)
 
 # The partial function allows for multiple predictors
-partial(ozone.rf, pred.var = c("Temp", "Wind"), grid.resolution = 20,
+partial(boston.rf, pred.var = c("lstat", "rm"), grid.resolution = 40,
         plot = TRUE, chull = TRUE, .progress = "text")
 
 # The plotPartial function offers more flexible plotting
-pd <- partial(ozone.rf, pred.var = c("Temp", "Wind"), grid.resolution = 20,
-              chull = TRUE)
+pd <- partial(boston.rf, pred.var = c("lstat", "rm"), grid.resolution = 40)
 plotPartial(pd)  # the default
-plotPartial(pd, levelplot = FALSE, zlab = "Ozone", drape = TRUE,
-            colorkey = FALSE, screen = list(z = 120, x = -60))
+plotPartial(pd, levelplot = FALSE, zlab = "cmedv", drape = TRUE,
+            colorkey = FALSE, screen = list(z = -20, x = -60))
+
+#
+# Classification example (requires randomForest package to run)
+#
+
+# Fit a random forest to the Pima Indians diabetes data
+data (pima)  # load the boston housing data
+set.seed(102)  # for reproducibility
+pima.rf <- randomForest(diabetes ~ ., data = pima, na.action = na.omit)
+
+# Partial dependence of glucose on diabetes test result (neg/pos)
+partial(pima.rf, pred.var = c("glucose", "age"), plot = TRUE, chull = TRUE,
+        .progress = "text")
+
+#
+# Interface with caret (requires caret package to run)
+#
+
+# Load required packages
+library(caret)  # for model training/tuning
+
+# Set up for 5-fold cross-validation
+ctrl <- trainControl(method = "cv", number = 5, verboseIter = TRUE)
+
+# Tune a support vector machine (SVM) using a radial basis function kerel to
+# the Pima Indians diabetes data
+set.seed(103)  # for reproducibility
+pima.svm <- train(diabetes ~ ., data = pima, method = "svmRadial",
+                  prob.model = TRUE, na.action = na.omit, trControl = ctrl,
+                  tuneLength = 10)
+
+# Partial dependence of glucose on diabetes test result (neg/pos)
+partial(pima.svm, pred.var = "glucose", plot = TRUE, rug = TRUE)
+}
 }
 \references{
 J. H. Friedman. Greedy function approximation: A gradient boosting machine.

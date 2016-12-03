@@ -1,5 +1,13 @@
 # NEWS for pdp package
 
+### Changes for version 0.2.0
+* `randomForest` is no longer imported.
+* Added support for the `caret` package (i.e., object of class `"train"`).
+* Added example datasets: `boston` (corrected Boston housing data) and `pima` (corrected Pima Indians diabetes data).
+* Fixed error that sometimes occurred when `chull = TRUE` causing the convex hull to not be computed.
+* Refactored `plotPartial` to be more modular.
+* Added `gbm` support for most non-`"binomial"` families`.
+
 ### Changes for version 0.1.0
 * `randomForest` is now imported.
 * Added examples.
