@@ -1,6 +1,6 @@
 #' Partial Dependence Functions
 #'
-#' Compute partial dependence functions (i.e., marginal effects) for various 
+#' Compute partial dependence functions (i.e., marginal effects) for various
 #' model fitting objects.
 #'
 #' @param object A fitted model object of appropriate class (e.g.,
@@ -16,16 +16,17 @@
 #'   the minimum between \code{51} and the number of unique data points for each
 #'   of the continuous independent variables listed in \code{pred.var}.
 #' @param type Character string specifying the type of supervised learning.
-#'   Current options are \code{"regression"} or \code{"classification"}. For
-#'   some objects (e.g., tree-based models like \code{"rpart"}), \code{partial}
-#'   can usually extract the necessary information from \code{object}.
+#'   Current options are \code{"auto"}, \code{"regression"} or
+#'   \code{"classification"}. If \code{type = "auto"} then \code{partial} try
+#'   to extract the necessary information from \code{object}.
 #' @param which.class Integer specifying which column of the matrix of predicted
 #'   probabilities to use as the "focus" class. Default is to use the first
 #'   class. Only used for classification problems (i.e., when
 #'   \code{type = "classification"}).
 #' @param plot Logical indicating whether to return a data frame containing the
 #'   partial dependence values (\code{FALSE}) or plot the partial dependence
-#'   function directly (\code{TRUE}). Default is \code{FALSE}.
+#'   function directly (\code{TRUE}). Default is \code{FALSE}. See
+#'   \code{\link{plotPartial}} for plotting details.
 #' @param smooth Logical indicating whether or not to overlay a LOESS smooth.
 #'   Default is \code{FALSE}.
 #' @param rug Logical indicating whether or not to include rug marks on the
@@ -40,8 +41,34 @@
 #' @param check.class Logical indicating whether or not to make sure each column
 #'   in \code{pred.grid} has the correct class, levels, etc. Default is
 #'   \code{TRUE}.
+#' @param progress Character string giving the name of the progress bar to use.
+#'   See \code{plyr::create_progress_bar} for details. Default is \code{"none"}.
+#' @param parallel Logical indicating whether or not to run \code{partial} in
+#'   parallel using a backend provided by the \code{foreach} package. Default is
+#'   \code{FALSE}. Default is \code{NULL}.
+#' @param paropts List containing additional options passed onto
+#'   \code{foreach::foreach} when \code{parallel = TRUE}.
 #' @param ... Additional optional arguments to be passed onto
-#'   \code{plyr::aaply}.
+#'   \code{stats::predict}.
+#'
+#' @return If \code{plot = FALSE} (the default) \code{partial} returns a data
+#' frame with the additional class \code{"partial"} that is specially recognized
+#' by the \code{plotPartial} function. If \code{plot = TRUE} then \code{partial}
+#' returns a "trellis" object (see \code{\link[lattice]{lattice}} for details)
+#' with an additional attribute, \code{"partial.data"}, containing the data
+#' displayed in the plot.
+#'
+#' @note
+#' In some cases it is difficult for \code{partial} to extract the original
+#' training data from \code{object}. In these cases an error message is
+#' displayed requesting the user to supply the training data via the
+#' \code{train} argument in the call to \code{partial}. In most cases where
+#' \code{partial} can extract the needed training data from \code{object},
+#' it is taken from the same environment in which \code{partial} was called.
+#' Therefore, it is important to not change the data used to construct
+#' \code{object} before calling \code{partial}. This problem is completely
+#' avoided when the training data are passed to the \code{train} argument in the
+#' call to \code{partial}.
 #'
 #' @references
 #' J. H. Friedman. Greedy function approximation: A gradient boosting machine.
@@ -119,9 +146,17 @@ partial <- function(object, ...) {
 #' @rdname partial
 #' @export
 partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
-                            type, which.class = 1L, plot = FALSE,
+                            type = c("auto", "regression", "classification"),
+                            which.class = 1L, plot = FALSE,
                             smooth = FALSE, rug = FALSE, chull = FALSE, train,
-                            check.class = TRUE, ...) {
+                            check.class = TRUE, progress = "none",
+                            parallel = FALSE, paropts = NULL, ...) {
+
+  # Error message to display when training data cannot be extracted form object
+  mssg <- paste0("The training data could not be extracted from ",
+                 deparse(substitute(object)), ". Please supply the raw ",
+                 "training data using the `train` argument in the call to ,",
+                 "`partial`.")
 
   # Data frame
   if (missing(train)) {
@@ -129,17 +164,33 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
       train <- object@data@get("input")
     } else if (inherits(object, "train")) {
       train <- object$trainingData
+      train$.outcome <- NULL  # remove .outcome column
+    } else if (isS4(object)) {
+      stop(mssg)
     } else {
       if (is.null(object$call$data)) {
-        stop(paste0("The training data could not be extracted from ",
-                    deparse(substitute(object)), ". Please supply the raw ",
-                    "training data using the `train` argument in the call ",
-                    "to `partial`."))
+        stop(mssg)
       } else {
         train <- eval(object$call$data)
       }
     }
   }
+
+  # Throw error message if predictor names not found in training data
+  if (!all(pred.var %in% names(train))) {
+    stop(paste(paste(pred.var[!(pred.var %in% names(train))], collapse = ", "),
+               "not found in the training data."))
+  }
+
+  # Throw an error message of one of the predictors is labelled "y"
+  if ("y" %in% pred.var) {
+    stop("\"y\" cannot be a predictor name.")
+  }
+
+  # NOTE: It is worth considering the approach taken by the plotmo package,
+  # which now has the option to compute PDPs. plotmo seems to make one large
+  # pred.grid which increases memory usage, but decreases the number of calls to
+  # stats::predict.
 
   # Predictor values of interest
   if (missing(pred.grid)) {
@@ -158,39 +209,41 @@ partial.default <- function(object, pred.var, pred.grid, grid.resolution = NULL,
   }
 
   # Determine the type of supervised learning used
-  if (missing(type)) {
+  type <- match.arg(type)
+  if (type == "auto") {
     type <- superType(object)
-  } else {
-    if (!(type %in% c("regression", "classification"))) {
-      stop(paste(deparse(substitute(type)), 'is not a valid value for `type`.',
-                 'Please select either "regression" or "classification".'))
-    }
   }
 
   # Calculate partial dependence values
   if (type == "regression") {
     pd.df <- pdRegression(object, pred.var = pred.var, pred.grid = pred.grid,
-                          train = train, ...)
+                          train = train, progress = progress,
+                          parallel = parallel, paropts = paropts, ...)
   } else if (type == "classification") {
     pd.df <- pdClassification(object, pred.var = pred.var,
                               pred.grid = pred.grid, which.class = which.class,
-                              train = train, ...)
+                              train = train, progress = progress,
+                              parallel = parallel, paropts = paropts, ...)
   } else {
     stop(paste("Partial dependence values are currently only available",
                "for classification and regression problems."))
   }
 
   # Create data frame of partial dependence values
-  names(pd.df) <- c(pred.var, "y")
+  names(pd.df) <- c(pred.var, "yhat")
   class(pd.df) <- c("data.frame", "partial")
 
   # Plot partial dependence function (if requested)
   if (plot) {
-    print(plotPartial(pd.df, smooth = smooth, rug = rug, train = train,
-                      col.regions = viridis::viridis))
+    res <- plotPartial(pd.df, smooth = smooth, rug = rug, train = train,
+                       col.regions = viridis::viridis)
+    attr(res, "partial.data") <- pd.df
   } else {
     # Return partial dependence values
-    pd.df
+    res <- pd.df
   }
+
+  # Return results
+  res
 
 }

@@ -8,15 +8,17 @@
 partial(object, ...)
 
 \method{partial}{default}(object, pred.var, pred.grid, grid.resolution = NULL,
-  type, which.class = 1L, plot = FALSE, smooth = FALSE, rug = FALSE,
-  chull = FALSE, train, check.class = TRUE, ...)
+  type = c("auto", "regression", "classification"), which.class = 1L,
+  plot = FALSE, smooth = FALSE, rug = FALSE, chull = FALSE, train,
+  check.class = TRUE, progress = "none", parallel = FALSE,
+  paropts = NULL, ...)
 }
 \arguments{
 \item{object}{A fitted model object of appropriate class (e.g.,
 \code{"gbm"}, \code{"lm"}, \code{"randomForest"}, etc.).}
 
 \item{...}{Additional optional arguments to be passed onto
-\code{plyr::aaply}.}
+\code{stats::predict}.}
 
 \item{pred.var}{Character string giving the names of the predictor
 variables of interest. For reasons of computation/interpretation, this
@@ -32,9 +34,9 @@ the minimum between \code{51} and the number of unique data points for each
 of the continuous independent variables listed in \code{pred.var}.}
 
 \item{type}{Character string specifying the type of supervised learning.
-Current options are \code{"regression"} or \code{"classification"}. For
-some objects (e.g., tree-based models like \code{"rpart"}), \code{partial}
-can usually extract the necessary information from \code{object}.}
+Current options are \code{"auto"}, \code{"regression"} or
+\code{"classification"}. If \code{type = "auto"} then \code{partial} try
+to extract the necessary information from \code{object}.}
 
 \item{which.class}{Integer specifying which column of the matrix of predicted
 probabilities to use as the "focus" class. Default is to use the first
@@ -43,7 +45,8 @@ class. Only used for classification problems (i.e., when
 
 \item{plot}{Logical indicating whether to return a data frame containing the
 partial dependence values (\code{FALSE}) or plot the partial dependence
-function directly (\code{TRUE}). Default is \code{FALSE}.}
+function directly (\code{TRUE}). Default is \code{FALSE}. See
+\code{\link{plotPartial}} for plotting details.}
 
 \item{smooth}{Logical indicating whether or not to overlay a LOESS smooth.
 Default is \code{FALSE}.}
@@ -63,10 +66,40 @@ argument is required.}
 \item{check.class}{Logical indicating whether or not to make sure each column
 in \code{pred.grid} has the correct class, levels, etc. Default is
 \code{TRUE}.}
+
+\item{progress}{Character string giving the name of the progress bar to use.
+See \code{plyr::create_progress_bar} for details. Default is \code{"none"}.}
+
+\item{parallel}{Logical indicating whether or not to run \code{partial} in
+parallel using a backend provided by the \code{foreach} package. Default is
+\code{FALSE}. Default is \code{NULL}.}
+
+\item{paropts}{List containing additional options passed onto
+\code{foreach::foreach} when \code{parallel = TRUE}.}
+}
+\value{
+If \code{plot = FALSE} (the default) \code{partial} returns a data
+frame with the additional class \code{"partial"} that is specially recognized
+by the \code{plotPartial} function. If \code{plot = TRUE} then \code{partial}
+returns a "trellis" object (see \code{\link[lattice]{lattice}} for details)
+with an additional attribute, \code{"partial.data"}, containing the data
+displayed in the plot.
 }
 \description{
-Compute partial dependence functions (i.e., marginal effects) for various 
+Compute partial dependence functions (i.e., marginal effects) for various
 model fitting objects.
+}
+\note{
+In some cases it is difficult for \code{partial} to extract the original
+training data from \code{object}. In these cases an error message is
+displayed requesting the user to supply the training data via the
+\code{train} argument in the call to \code{partial}. In most cases where
+\code{partial} can extract the needed training data from \code{object},
+it is taken from the same environment in which \code{partial} was called.
+Therefore, it is important to not change the data used to construct
+\code{object} before calling \code{partial}. This problem is completely
+avoided when the training data are passed to the \code{train} argument in the
+call to \code{partial}.
 }
 \examples{
 \dontrun{
