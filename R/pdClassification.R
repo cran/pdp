@@ -1,138 +1,165 @@
 #' @keywords internal
-pdClassification <- function(object, pred.var, pred.grid, which.class,
+pdClassification <- function(object, pred.var, pred.grid, pred.fun, which.class,
                              train, progress, parallel, paropts, ...) {
-  UseMethod("pdClassification")
-}
 
+  # Use plyr::adply, rather than a for loop
+  plyr::adply(pred.grid, .margins = 1, .progress = progress,
+              .parallel = parallel, .paropts = paropts, .fun = function(x) {
 
-#' @keywords internal
-pdClassification.default <- function(object, pred.var, pred.grid, which.class,
-                                     train, progress, parallel, paropts, ...) {
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    # FIXME: Does this copy need to be made?
+    # Copy training data and replace pred.var with constant
     temp <- train
     temp[pred.var] <- x
-    pr <- stats::predict(object, newdata = temp, type = "prob", ...)
-    stats::setNames(avgLogit(pr, which.class = which.class), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
-}
 
-
-#' @keywords internal
-pdClassification.glm <- function(object, pred.var, pred.grid, which.class,
-                                     train, progress, parallel, paropts, ...) {
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    pr <- stats::predict(object, newdata = temp, type = "response", ...)
-    # Binary regression returns a vector of predicted probabilities!
-    stats::setNames(avgLogit(cbind(pr, 1 - pr),
-                             which.class = which.class), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
-}
-
-
-#' @keywords internal
-pdClassification.bagging <- function(object, pred.var, pred.grid, which.class,
-                                      train, progress, parallel, paropts, ...) {
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    pr <- stats::predict(object, newdata = temp, ...)$prob
-    stats::setNames(avgLogit(pr, which.class = which.class), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
-}
-
-
-#' @keywords internal
-pdClassification.boosting <- function(object, pred.var, pred.grid, which.class,
-                                      train, progress, parallel, paropts, ...) {
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    pr <- stats::predict(object, newdata = temp, ...)$prob
-    stats::setNames(avgLogit(pr, which.class = which.class), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
-}
-
-
-#' @keywords internal
-pdClassification.gbm <- function(object, pred.var, pred.grid, which.class,
-                                 train, progress, parallel, paropts, ...) {
-  # Necessary to avoid silly printing from predict.gbm
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    log <- utils::capture.output(pr <- stats::predict(object, newdata = temp,
-                                                      type = "response", ...))
-    stats::setNames(avgLogit(cbind(pr, 1 - pr),
-                             which.class = which.class), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
-}
-
-
-#' @keywords internal
-pdClassification.xgb.Booster <- function(object, pred.var, pred.grid,
-                                         which.class, train, progress, parallel,
-                                         paropts, ...) {
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    pr <- stats::predict(object, newdata = data.matrix(temp), ...)
-    if (object$params$objective == "binary:logistic") {
-      pr <- cbind(pr, 1 - pr)
+    # Get prediction(s)
+    if (is.null(pred.fun)) {
+      stats::setNames(pdPredictClassification(object, newdata = temp,
+                                              which.class = which.class, ...),
+                      "yhat")
     } else {
-      dim(pr) <- c(nrow(train), object$params$num_class)  # reshape into matrix
+      out <- pred.fun(object, newdata = temp)
+      if (length(out) == 1) {
+        stats::setNames(out, "yhat")
+      } else {
+        if (is.null(names(out))) {
+          stats::setNames(out, paste0("yhat.", 1L:length(out)))
+        } else {
+          stats::setNames(out, paste0("yhat.", names(out)))
+        }
+      }
     }
-    stats::setNames(avgLogit(pr, which.class = which.class), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
+
+  })
+
 }
 
 
 #' @keywords internal
-pdClassification.ksvm <- function(object, pred.var, pred.grid, which.class,
-                                  train, progress, parallel, paropts, ...) {
+pdPredictClassification <- function(object, newdata, which.class, ...) {
+  UseMethod("pdPredictClassification")
+}
+
+
+#' @keywords internal
+pdPredictClassification.default <- function(object, newdata, which.class, ...) {
+  avgLogit(stats::predict(object, newdata = newdata, type = "prob", ...),
+           which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.BinaryTree <- function(object, newdata, which.class,
+                                               ...) {
+  pr <- stats::predict(object, newdata = newdata, type = "prob", ...)
+  avgLogit(do.call(rbind, pr), which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.bagging <- function(object, newdata, which.class, ...) {
+  avgLogit(stats::predict(object, newdata = newdata, ...)$prob,
+           which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.boosting <- function(object, newdata, which.class,
+                                             ...) {
+  avgLogit(stats::predict(object, newdata = newdata, ...)$prob,
+           which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.earth <- function(object, newdata, which.class, ...) {
+  pr <- stats::predict(object, newdata = newdata, type = "response", ...)
+  avgLogit(cbind(pr, 1 - pr), which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.gbm <- function(object, newdata, which.class, ...) {
+  pr <- stats::predict(object, newdata = newdata, type = "response", ...)
+  avgLogit(cbind(pr, 1 - pr), which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.glm <- function(object, newdata, which.class, ...) {
+  pr <- stats::predict(object, newdata = newdata, type = "response", ...)
+  avgLogit(cbind(pr, 1 - pr), which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.ksvm <- function(object, newdata, which.class, ...) {
   if (is.null(object@kcall$prob.model)) {
     stop(paste("Cannot obtain predicted probabilities from",
                deparse(substitute(object))))
   }
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    pr <- kernlab::predict(object, newdata = temp, type = "probabilities", ...)
-    stats::setNames(avgLogit(pr, which.class = which.class), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
+  avgLogit(kernlab::predict(object, newdata = newdata,
+                            type = "probabilities", ...),
+           which.class = which.class)
 }
 
 
 #' @keywords internal
-pdClassification.nnet <- function(object, pred.var, pred.grid, which.class,
-                                  train, progress, parallel, paropts, ...) {
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    pr <- if (inherits(object, "multinom")) {
-      stats::predict(object, newdata = temp, type = "probs", ...)
-    } else {
-      stats::predict(object, newdata = temp, type = "raw", ...)
-    }
-    stats::setNames(avgLogit(pr, which.class = which.class), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
+pdPredictClassification.nnet <- function(object, newdata, which.class, ...) {
+  pr <- if (inherits(object, "multinom")) {
+    stats::predict(object, newdata = newdata, type = "probs", ...)
+  } else {
+    stats::predict(object, newdata = newdata, type = "raw", ...)
+  }
+  # It seems that when the response has more than two levels, predict.nnet
+  # returns a matrix whose column names are the same as the factor levels. When
+  # the response is binary, a single-columned matrix with no column name is
+  # returned.
+  if (ncol(pr) == 1) {
+    avgLogit(cbind(pr, 1 - pr), which.class = which.class)
+  } else {
+    avgLogit(pr, which.class = which.class)
+  }
 }
 
 
 #' @keywords internal
-pdClassification.svm <- function(object, pred.var, pred.grid, which.class,
-                                 train, progress, parallel, paropts, ...) {
+pdPredictClassification.RandomForest <- function(object, newdata, which.class,
+                                                 ...) {
+  pr <- stats::predict(object, newdata = newdata, type = "prob", ...)
+  avgLogit(do.call(rbind, pr), which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.ranger <- function(object, newdata, which.class, ...) {
+  if (object$treetype != "Probability estimation") {
+    stop(paste("Cannot obtain predicted probabilities from",
+               deparse(substitute(object))))
+  }
+  avgLogit(stats::predict(object, data = newdata, ...)$predictions,
+           which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.svm <- function(object, newdata, which.class, ...) {
   if (is.null(object$call$probability)) {
     stop(paste("Cannot obtain predicted probabilities from",
                deparse(substitute(object))))
   }
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    pr <- attr(stats::predict(object, newdata = temp, probability = TRUE, ...),
-               which = "probabilities")
-    stats::setNames(avgLogit(pr, which.class = which.class), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
+  avgLogit(attr(stats::predict(object, newdata = newdata, probability = TRUE,
+                               ...),
+                which = "probabilities"), which.class = which.class)
+}
+
+
+#' @keywords internal
+pdPredictClassification.xgb.Booster <- function(object, newdata, which.class,
+                                                ...) {
+  pr <- stats::predict(object, newdata = data.matrix(newdata), ...)
+  if (object$params$objective == "binary:logistic") {
+    pr <- cbind(pr, 1 - pr)
+  } else {
+    dim(pr) <- c(nrow(newdata), object$params$num_class)  # reshape into matrix
+  }
+  avgLogit(pr, which.class = which.class)
 }

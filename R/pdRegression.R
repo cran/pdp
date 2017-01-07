@@ -1,49 +1,67 @@
 #' @keywords internal
-pdRegression <- function(object, pred.var, pred.grid, train, progress, parallel,
-                         paropts, ...) {
-  UseMethod("pdRegression")
-}
+pdRegression <- function(object, pred.var, pred.grid, pred.fun,
+                         train, progress, parallel, paropts, ...) {
 
+  # Use plyr::adply, rather than a for loop
+  plyr::adply(pred.grid, .margins = 1, .progress = progress,
+              .parallel = parallel, .paropts = paropts, .fun = function(x) {
 
-#' @keywords internal
-pdRegression.default <- function(object, pred.var, pred.grid, train, progress,
-                                 parallel, paropts, ...) {
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
+    # Copy training data and replace pred.var with constant
     temp <- train
     temp[pred.var] <- x
-    pred <- stats::predict(object, newdata = temp, ...)
-    # Some fitting functions return a matrix (e.g., mda::mars)
-    if (is.matrix(pred) || is.data.frame(pred)) {
-      pred <- pred[, 1L, drop = TRUE]
+
+    # Get prediction(s)
+    if (is.null(pred.fun)) {
+      stats::setNames(pdPredictRegression(object, newdata = temp, ...), "yhat")
+    } else {
+      out <- pred.fun(object, newdata = temp)
+      if (length(out) == 1) {
+        stats::setNames(out, "yhat")
+      } else {
+        if (is.null(names(out))) {
+          stats::setNames(out, paste0("yhat.", 1L:length(out)))
+        } else {
+          stats::setNames(out, paste0("yhat.", names(out)))
+        }
+      }
     }
-    stats::setNames(mean(pred, na.rm = TRUE), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
+
+  })
+
 }
 
 
 #' @keywords internal
-pdRegression.gbm <- function(object, pred.var, pred.grid, train, progress,
-                             parallel, paropts, ...) {
-  # Necessary to avoid silly printing from predict.gbm
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    log <- utils::capture.output(z <- mean(stats::predict(object,
-                                                          newdata = temp, ...),
-                                           na.rm = TRUE))
-    stats::setNames(z, "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
+pdPredictRegression <- function(object, newdata, ...) {
+  UseMethod("pdPredictRegression")
 }
 
 
 #' @keywords internal
-pdRegression.xgb.Booster <- function(object, pred.var, pred.grid, train,
-                                     progress, parallel, paropts, ...) {
-  plyr::adply(pred.grid, .margins = 1, .fun = function(x) {
-    temp <- train
-    temp[pred.var] <- x
-    stats::setNames(mean(stats::predict(object,
-                                        newdata = data.matrix(temp), ...),
-                         na.rm = TRUE), "yhat")
-  }, .progress = progress, .parallel = parallel, .paropts = paropts)
+pdPredictRegression.default <- function(object, newdata, ...) {
+  pred <- stats::predict(object, newdata = newdata, ...)
+  if (is.matrix(pred) || is.data.frame(pred)) {
+    pred <- pred[, 1L, drop = TRUE]
+  }
+  mean(pred, na.rm = TRUE)
+}
+
+
+#' @keywords internal
+pdPredictRegression.ksvm <- function(object, newdata, ...) {
+  mean(kernlab::predict(object, newdata = newdata, ...)[, 1L, drop = TRUE],
+       na.rm = TRUE)
+}
+
+
+#' @keywords internal
+pdPredictRegression.ranger <- function(object, newdata, ...) {
+  mean(stats::predict(object, data = newdata, ...)$predictions, na.rm = TRUE)
+}
+
+
+#' @keywords internal
+pdPredictRegression.xgb.Booster <- function(object, newdata, ...) {
+  mean(stats::predict(object, newdata = data.matrix(newdata), ...),
+       na.rm = TRUE)
 }

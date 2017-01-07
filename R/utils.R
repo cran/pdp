@@ -24,6 +24,19 @@ NULL
 NULL
 
 
+#' Retrieve the last Trellis Object
+#'
+#' See \code{\link[lattice]{trellis.last.object}} for more details.
+#'
+#' @name trellis.last.object
+#' @rdname trellis.last.object
+#' @keywords internal
+#' @export
+#' @importFrom lattice  trellis.last.object
+#' @usage trellis.last.object(..., prefix)
+NULL
+
+
 #' @keywords internal
 copyClasses <- function(x, y) {
   x.names <- names(x)
@@ -94,237 +107,5 @@ trainCHull <- function(pred.var, pred.grid, train) {
     pred.grid[keep, ]
   } else {
     pred.grid
-  }
-}
-
-
-#' @keywords internal
-predGrid <- function(object, pred.var, train, grid.resolution = NULL) {
-  UseMethod("predGrid")
-}
-
-
-#' @keywords internal
-predGrid.default <- function(object, pred.var, train, grid.resolution = NULL) {
-  pred.val <- lapply(pred.var, function(x) {
-    if (is.factor(train[[x]])) {
-      levels(train[[x]])
-    } else {
-      if (is.null(grid.resolution)) {
-        grid.resolution <- min(length(unique(train[[x]])), 51)
-      }
-      seq(from = min(train[[x]], na.rm = TRUE),
-          to = max(train[[x]], na.rm = TRUE),
-          length = grid.resolution)
-    }
-  })
-  pred.grid <- expand.grid(pred.val)
-  names(pred.grid) <- pred.var
-  pred.grid
-}
-
-
-# TODO (bgreenwell):
-# predGrid.rpart <- NULL
-# predGrid.BinaryTree <- NULL
-# predGrid.ctree <- NULL
-# predGrid.randomForest <- NULL
-# predGrid.RandomForest <- NULL
-
-
-#' @keywords internal
-superType <- function(object) {
-  UseMethod("superType")
-}
-
-
-#' @keywords internal
-superType.default <- function(object) {
-  warning('`type` could not be determined; assuming `type = "regression"`')
-  "regression"
-}
-
-
-#' @keywords internal
-superType.train <- function(object) {
-  if (object$modelType == "Classification") {
-    "classification"
-  } else if (object$modelType == "Regression") {
-    "regression"
-  } else {
-    "other"
-  }
-}
-
-
-#' @keywords internal
-superType.bagging <- function(object) {
-  "classification"
-}
-
-
-#' @keywords internal
-superType.boosting <- function(object) {
-  "classification"
-}
-
-
-#' @keywords internal
-superType.cubist <- function(object) {
-  "regression"
-}
-
-
-#' @keywords internal
-superType.C5.0 <- function(object) {
-  "classification"
-}
-
-
-#' @keywords internal
-superType.earth <- function(object) {
-  if (!is.null(object$glm.list) &&
-      object$glm.list[[1L]]$family$family == "binomial") {
-    "classification"
-  } else if (is.null(object$glm.list) ||
-             object$glm.list[[1L]]$family$family == "gaussian") {
-    "regression"
-  } else {
-    "other"
-  }
-}
-
-
-#' @keywords internal
-superType.lm <- function(object) {
-  # FIXME: What about multivariate response models?
-  "regression"
-}
-
-
-#' @keywords internal
-superType.nls <- function(object) {
-  "regression"
-}
-
-
-#' @keywords internal
-superType.glm <- function(object) {
-  if(object$family$family == "binomial") {
-    "classification"
-  } else if (object$family$family %in%
-             c("gaussian", "Gamma", "inverse.gaussian", "poisson")) {
-    "regression"
-  } else {
-    "other"
-  }
-}
-
-
-#' @keywords internal
-superType.multinom <- function(object) {
-  # FIXME: What about multivariate response models?
-  "classification"
-}
-
-
-#' @keywords internal
-superType.rpart <- function(object) {
-  if (object$method == "anova") {
-    "regression"
-  } else if (object$method == "class") {
-    "classification"
-  } else {
-    "other"
-  }
-}
-
-
-#' @keywords internal
-superType.BinaryTree <- function(object) {
-  if (object@responses@is_nominal) {
-    "classification"
-  } else if (object@responses@is_ordinal || object@responses@is_censored) {
-    "other"
-  } else {
-    "regression"
-  }
-}
-
-
-#' @keywords internal
-superType.randomForest <- function(object) {
-  if (object$type == "regression") {
-    "regression"
-  } else if (object$type == "classification") {
-    "classification"
-  } else {
-    "unsupervised"
-  }
-}
-
-
-#' @keywords internal
-superType.RandomForest <- function(object) {
-  if (object@responses@is_nominal) {
-    "classification"
-  } else if (object@responses@is_ordinal || object@responses@is_censored) {
-    "other"
-  } else {
-    "regression"
-  }
-}
-
-
-#' @keywords internal
-superType.gbm <- function(object) {
-  if (object$distribution %in% c("gaussian", "laplace", "tdist")) {
-    "regression"
-  } else if (object$distribution %in% c("bernoulli", "huberized", "multinomial",
-                                        "adaboost")) {
-    "classification"
-  } else {
-    "other"
-  }
-}
-
-
-#' @keywords internal
-superType.xgb.Booster <- function(object) {
-  if (object$params$objective == "reg:linear") {
-    "regression"
-  } else if (object$params$objective %in%
-             c("binary:logistic", "multi:softprob")) {
-    # FIXME: Throw a warning if objective function is classification, but does
-    # not return the predicted probabilities (e.g., "binary:logitraw").
-    "classification"
-  } else if (object$params$objective %in%
-             c("reg:logistic", "binary:logitraw", "multi:softmax")) {
-    stop(paste0("For classification, switch to an objective function",
-                "that returns the predicted probabilities."))
-  } else {
-    "other"
-  }
-}
-
-
-#' @keywords internal
-superType.svm <- function(object) {
-  if (is.null(object$levels)) {
-    "regression"
-  } else {
-    "classification"
-  }
-}
-
-
-#' @keywords internal
-superType.ksvm <- function(object) {
-  if (grepl("svr$", object@type)) {
-    "regression"
-  } else if (grepl("svc$", object@type)) {
-    "classification"
-  } else {
-    "other"
   }
 }
