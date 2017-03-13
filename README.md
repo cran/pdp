@@ -1,129 +1,96 @@
-[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/pdp)](https://cran.r-project.org/package=pdp)
-[![Build Status](https://travis-ci.org/bgreenwell/pdp.svg?branch=master)](https://travis-ci.org/bgreenwell/pdp)
-[![Coverage Status](https://img.shields.io/codecov/c/github/bgreenwell/pdp.svg)](https://codecov.io/github/bgreenwell/pdp?branch=master)
-[![Downloads](http://cranlogs.r-pkg.org/badges/pdp)](http://cranlogs.r-pkg.org/badges/pdp)
-[![Total Downloads](http://cranlogs.r-pkg.org/badges/grand-total/pdp)](http://cranlogs.r-pkg.org/badges/grand-total/pdp)
-[![Rdoc](http://www.rdocumentation.org/badges/version/pdp)](http://www.rdocumentation.org/packages/pdp)
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/pdp)](https://cran.r-project.org/package=pdp) [![Build Status](https://travis-ci.org/bgreenwell/pdp.svg?branch=master)](https://travis-ci.org/bgreenwell/pdp) [![Coverage Status](https://img.shields.io/codecov/c/github/bgreenwell/pdp.svg)](https://codecov.io/github/bgreenwell/pdp?branch=master) [![Downloads](http://cranlogs.r-pkg.org/badges/pdp)](http://cranlogs.r-pkg.org/badges/pdp) [![Total Downloads](http://cranlogs.r-pkg.org/badges/grand-total/pdp)](http://cranlogs.r-pkg.org/badges/grand-total/pdp) [![Rdoc](http://www.rdocumentation.org/badges/version/pdp)](http://www.rdocumentation.org/packages/pdp)
 
 pdp: An R Package for Constructing Partial Dependence Plots
-================
+===========================================================
 
-The primary purpose of this package is to provide a general framework for constructing _partial dependence plots_ (PDPs) in R.
+Complex nonparametric models---like neural networks, random forests, and support vector machines---are more common than ever in predictive analytics, especially when dealing with large observational databases that don't adhere to the strict assumptions imposed by traditional statistical techniques (e.g., multiple linear regression which assumes linearity, homoscedasticity, and normality). Unfortunately, it can be challenging to understand the results of such models and explain them to management. Partial dependence plots offer a simple solution. Partial dependence plots are low-dimensional graphical renderings of the prediction function $\\widehat{f}\\left(\\boldsymbol{x}\\right)$ so that the relationship between the outcome and predictors of interest can be more easily understood. These plots are especially useful in explaining the output from black box models. The `pdp` package offers a general framework for constructing partial dependence plots for various types of fitted models in R.
 
+A detailed introduction to `pdp` has been accepted for publication in The R Journal; a preprint is available [here](https://github.com/bgreenwell/pdp-paper/blob/master/RJwrapper.pdf). You can track development on at <https://github.com/bgreenwell/pdp>. To report bugs or issues, contact the main author directly or submit them to <https://github.com/bgreenwell/pdp/issues>.
 
-### Installation
+As of right now, `pdp` exports four functions:
 
-The R package `pdp` is available from [CRAN](https://cran.r-project.org/package=pdp); the development version is hosted on [GitHub](https://github.com/bgreenwell/pdp). There are two ways to install:
+-   `partial` - compute partial dependence functions (i.e., objects of class `"partial"`) from various fitted model objects;
+-   `plotPartial"` - plot partial dependence functions (i.e., objects of class `"partial"`) using `lattice` graphics;
+-   `autoplot` - plot partial dependence functions (i.e., objects of class `"partial"`) using `ggplot2` graphics;
+-   `topPredictors` extract most "important" predictors from various types of fitted models.
 
-```r
-# Install latest release from CRAN (recommended)
-install.packages("pdp")
+Installation
+------------
 
-# Install development version from GitHub repo
-devtools::install_github("bgreenwell/pdp")
+The `pdp` package is [currently listed on CRAN](https://CRAN.R-project.org/package=pdp) and can easily be installed:
+
+``` r
+  # Install from CRAN (recommended)
+  install.packages("pdp")
+  
+  # Alternatively, install the development version from GitHub
+  devtools::install_github("bgreenwell/pdp")
 ```
 
+Random forest example
+---------------------
 
-### Example usage
+As a first example, we'll fit a random forest to the famous Boston housing data included with the package (see `?boston` for details). In fact the original motivation for this package was to be able to compute two-predictor partial dependence plots from random forest models in R.
 
-The examples below demonstrate various usages of the `pdp` package: regression, classification, and interfacing with the well-known `caret` package. To start, we need to install a few additional packages that will be required to run the examples.
-
-```r
-install.packages(c("caret", "ggmap", "kernlab", "randomForest"))
-```
-
-
-#### Regression example
-
-In this example, we fit a random forest to the Boston housing data. (See `?boston` for a brief explanation of the data.) Note, for any of the following examples, you can see a progress bar by simply specifying `progress = "text"` in the call to `partial`. You may also reduce the computation time via the `grid.resolution` option in the call to `partial`.
-
-```r
-# Load required packages
-library(pdp)  # for constructing PDPs
-library(randomForest)  # for random forest algorithm
-
-# Load the Boston housing data
-data (boston)  # included with the pdp package
-
-# Fit a random forest to the boston housing data
+``` r
+# Fit a random forest to the Boston housing data
+library(randomForest)  # install.packages("randomForest")
+data (boston)  # load the boston housing data
 set.seed(101)  # for reproducibility
 boston.rf <- randomForest(cmedv ~ ., data = boston)
 
-# Partial dependence of lstat and rm on cmedv
-grid.arrange(
-  partial(boston.rf, pred.var = "lstat", plot = TRUE, rug = TRUE),
-  partial(boston.rf, pred.var = "rm", plot = TRUE, rug = TRUE),
-  partial(boston.rf, pred.var = c("lstat", "rm"), plot = TRUE, chull = TRUE),
-  ncol = 3
-)
+# Partial dependence of cmedv on lstat and rm
+library(pdp)
+pd <- partial(boston.rf, pred.var = c("lstat", "rm"), chull = TRUE)
+head(pd)  # print first 6 rows
+#>     lstat      rm     yhat
+#> 1  7.5284 3.66538 24.13683
+#> 2  8.2532 3.66538 23.24916
+#> 3  8.9780 3.66538 23.13119
+#> 4  9.7028 3.66538 22.13531
+#> 5 10.4276 3.66538 20.62331
+#> 6 11.1524 3.66538 20.51258
+
+# Lattice version
+p1 <- plotPartial(pd, main = "lattice version")
+
+# ggplot2 version
+library(ggplot2)
+p2 <- autoplot(pd, contour = TRUE, main = "ggplot2 version", 
+               legend.title = "Partial\ndependence")
+
+# Show both plots in one figure
+grid.arrange(p1, p2, ncol = 2)
 ```
 
-![](README_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
+![](tools/README-example-rf-1.png)
 
+Next, we'll fit a classification model to the Pima Indians Diabetes data.
 
-#### Classification example 
+Support vector machine (SVM) example
+------------------------------------
 
-In this example, we fit a support vector machine with a radial basis function kernel to the Pima Indians diabetes data. (See `?pima` for a brief explanation of the data.)
+As a second example, we'll fit an SVM to the Pima Indians diabetes data included with the package (see `?pima` for details). Note that for some fitted model objects (e.g., `"ksvm"` objects) it is necessary to supply the original training data via the `train` argument in the call to `partial`.
 
-```r
-# Load required packages
-library(kernlab)  # for fitting SVMs
-
+``` r
 # Fit an SVM to the Pima Indians diabetes data
-data (pima)  # load the boston housing data
+library(kernlab)  # install.packages("kernlab")
+data (pima)  # load the Pima Indians diabetes data
 pima.svm <- ksvm(diabetes ~ ., data = pima, type = "C-svc", kernel = "rbfdot",
                  C = 0.5, prob.model = TRUE)
+ 
+# Partial dependence of diabetes test result on glucose (default is logit scale)
+pd.glucose <- partial(pima.svm, pred.var = "glucose", train = pima)
 
-# Partial dependence of glucose and age on diabetes test result (neg/pos).
-grid.arrange(
-  partial(pima.svm, pred.var = "glucose", plot = TRUE, train = pima),
-  partial(pima.svm, pred.var = "age", plot = TRUE, train = pima),
-  partial(pima.svm, pred.var = c("glucose", "age"), plot = TRUE, train = pima),
-  ncol = 3
-)
+# Partial dependence of diabetes test result on glucose (probability scale)
+pd.glucose.prob <- partial(pima.svm, pred.var = "glucose", prob = TRUE, 
+                           train = pima)
+
+# Show both plots in one figure
+grid.arrange(autoplot(pd.glucose, main = "Logit scale"), 
+             autoplot(pd.glucose.prob, main = "Probability scale"), 
+             ncol = 2)
 ```
 
-![](README_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
-
-
-#### Interface with `caret`
-
-Finally, we demonstrate the construction of PDPs from models fit using the `caret` package; `caret` is an extremetly useful package for classification and regression training that, essentially, has one function (`train`) for fitting all kinds of predictive models in R (e.g., `glmnet`, `svm`, `xgboost`, etc.). 
-
-For illustration we use `caret`'s `train` function to tune an [XGBoost](https://github.com/dmlc/xgboost) model to the Pima Indians diabetes data using 5-fold cross-validation. We then use the final model to construct PDPs for `glucose` and `age`. Note, when training a model using `caret`'s `train` function, you can view tuning progress by setting `verboseIter = TRUE` in the call to `trainControl`.
-
-```r
-# Load required packages
-library(caret)  # for model training/tuning
-
-# Set up for 5-fold cross-validation
-ctrl <- trainControl(method = "cv", number = 5)
-
-# Grid of tuning parameter values
-xgb.grid <- expand.grid(
-  nrounds = c(1000, 2000),
-  max_depth = 2:4,
-  eta = c(0.001, 0.01, 0.1),
-  gamma = 0, 
-  colsample_bytree = 1,
-  min_child_weight = 1,
-  subsample = c(0.5, 0.75, 1)
-)
-
-# Tune am XGBoost model to the Pima Indians diabetes data. This may take a few 
-# minutes!
-set.seed(103)  # for reproducibility
-pima.xgb <- train(diabetes ~ ., data = pima, method = "xgbTree",
-                  prob.model = TRUE, na.action = na.omit, trControl = ctrl,
-                  tuneGrid = xgb.grid)
-
-# Partial dependence of glucose and age on diabetes test result (neg/pos)
-grid.arrange(
-  partial(pima.xgb, pred.var = "glucose", plot = TRUE, rug = TRUE),
-  partial(pima.xgb, pred.var = "age", plot = TRUE, rug = TRUE),
-  partial(pima.xgb, pred.var = "mass", plot = TRUE, rug = TRUE),
-  ncol = 3 
-)
-```
-
-![](README_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+![](tools/README-example-svm-1.png)

@@ -7,7 +7,7 @@
 #' @param smooth Logical indicating whether or not to overlay a LOESS smooth.
 #'   Default is \code{FALSE}.
 #' @param rug Logical indicating whether or not to include rug marks on the
-#'   predictor axes. Only used when \code{plot = TRUE}. Default is \code{FALSE}.
+#'   predictor axes. Default is \code{FALSE}.
 #' @param chull Logical indicating wether or not to restrict the first
 #'   two variables in \code{pred.var} to lie within the convex hull of their
 #'   training values; this affects \code{pred.grid}. Default is \code{FALSE}.
@@ -17,17 +17,18 @@
 #'   level plot. Only used when \code{levelplot = TRUE}. Default is
 #'   \code{FALSE}.
 #' @param number Integer specifying the number of conditional intervals to use
-#'   for the continuous panel variables. See \code{?graphics::co.intervals} and
-#'   \code{?lattice::equal.count} for further details.
+#'   for the continuous panel variables. See
+#'   \code{\link[graphics]{co.intervals}} and \code{\link[lattice]{equal.count}}
+#'   for further details.
 #' @param overlap The fraction of overlap of the conditioning variables. See
-#'   \code{?graphics::co.intervals} and \code{?lattice::equal.count} for further
-#'   details.
+#'   \code{\link[graphics]{co.intervals}} and \code{\link[lattice]{equal.count}}
+#'   for further details.
 #' @param train Data frame containing the original training data. Only
 #'   required if \code{rug = TRUE} or \code{chull = TRUE}.
 #' @param col.regions Color vector to be used if \code{levelplot} is
 #'   \code{TRUE}. Defaults to the wonderful Matplotlib 'viridis' color map
-#'   provided by the \code{viridis} package. See \code{?viridis::viridis} for
-#'   details.
+#'   provided by the \code{viridis} package. See \code{\link[viridis]{viridis}}
+#'   for details.
 #' @param ... Additional optional arguments to be passed onto \code{dotplot},
 #'   \code{levelplot}, \code{xyplot}, or \code{wireframe}.
 #'
@@ -78,7 +79,7 @@ plotPartial.partial <- function(x, smooth = FALSE, rug = FALSE, chull = FALSE,
     # Multiple PDPs for a single predictor
     p <- pdpMulti(x, rug = rug, train = train, ...)
 
-  } else if (nx == 1) {
+  } else if (nx == 1L) {
 
     # PDP for a single predictor
     p <- if (is.factor(x[[1L]])) {
@@ -141,7 +142,7 @@ pdpMulti <- function(x, rug = FALSE, train = NULL, ...) {
                 if (is.null(train)) {
                   stop("The training data must be supplied for rug display.")
                 } else {
-                  panel.rug(stats::quantile(train[[names(x)[1L]]],
+                  panel.rug(stats::quantile(train[, names(x)[1L]],
                                             probs = 0:10/10, na.rm = TRUE))
                 }
               }
@@ -155,7 +156,7 @@ pdpMulti <- function(x, rug = FALSE, train = NULL, ...) {
                if (is.null(train)) {
                  stop("The training data must be supplied for rug display.")
                } else {
-                 panel.rug(stats::quantile(train[[names(x)[1L]]],
+                 panel.rug(stats::quantile(train[, names(x)[1L]],
                                            probs = 0:10/10, na.rm = TRUE))
                }
              }
@@ -176,7 +177,7 @@ pdpNumeric <- function(x, smooth, rug, train = NULL, ...) {
              if (is.null(train)) {
                stop("The training data must be supplied for rug display.")
              } else {
-               panel.rug(stats::quantile(train[[names(x)[1L]]],
+               panel.rug(stats::quantile(train[, names(x)[1L]],
                                          probs = 0:10/10, na.rm = TRUE))
              }
            }
@@ -219,7 +220,7 @@ pdpNumericFactor <- function(x, smooth, rug, train, ...) {
              if (is.null(train)) {
                stop("The training data must be supplied for rug display.")
              } else {
-               panel.rug(stats::quantile(train[[names(x)[1L]]],
+               panel.rug(stats::quantile(train[, names(x)[1L]],
                                          probs = 0:10/10, na.rm = TRUE))
              }
            }
@@ -251,9 +252,9 @@ pdpNumericNumeric <- function(x, levelplot, rug, chull, train, contour,
                 }
                 # Add a rug display
                 if (rug) {
-                  panel.rug(stats::quantile(train[[names(x)[1L]]],
+                  panel.rug(stats::quantile(train[, names(x)[1L]],
                                             probs = 0:10/10, na.rm = TRUE),
-                            stats::quantile(train[[names(x)[2L]]],
+                            stats::quantile(train[, names(x)[2L]],
                                             probs = 0:10/10, na.rm = TRUE),
                             col = "black")
                 }
@@ -314,7 +315,7 @@ pdpNumericFactorShingle <- function(x, nx, smooth, rug, train, ...) {
              if (is.null(train)) {
                stop("The training data must be supplied for rug display.")
              } else {
-               panel.rug(stats::quantile(train[[names(x)[1L]]],
+               panel.rug(stats::quantile(train[, names(x)[1L]],
                                          probs = 0:10/10, na.rm = TRUE))
              }
            }

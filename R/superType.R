@@ -119,8 +119,23 @@ superType.ksvm <- function(object) {
 
 
 #' @keywords internal
+superType.lda<- function(object) {
+  "classification"
+}
+
+
+#' @keywords internal
 superType.lm <- function(object) {
   # FIXME: What about multivariate response models?
+  "regression"
+}
+
+
+#' @keywords internal
+superType.mars <- function(object) {
+  if (ncol(object$fitted.values) > 1) {
+    stop("`partial` does not currently support multivariate response models.")
+  }
   "regression"
 }
 
@@ -158,6 +173,12 @@ superType.ppr <- function(object) {
     stop("`partial` does not currently support multivariate response models.")
   }
   "regression"
+}
+
+
+#' @keywords internal
+superType.qda<- function(object) {
+  "classification"
 }
 
 
