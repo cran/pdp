@@ -8,72 +8,94 @@
 partial(object, ...)
 
 \method{partial}{default}(object, pred.var, pred.grid, pred.fun = NULL,
-  grid.resolution = NULL, quantiles = FALSE, probs = 1:9/10,
-  trim.outliers = FALSE, type = c("auto", "regression", "classification"),
+  grid.resolution = NULL, ice = FALSE, center = FALSE,
+  quantiles = FALSE, probs = 1:9/10, trim.outliers = FALSE,
+  type = c("auto", "regression", "classification"), inv.link = NULL,
   which.class = 1L, prob = FALSE, recursive = TRUE, plot = FALSE,
   smooth = FALSE, rug = FALSE, chull = FALSE, train, cats = NULL,
   check.class = TRUE, progress = "none", parallel = FALSE,
   paropts = NULL, ...)
 }
 \arguments{
-\item{object}{A fitted model object of appropriate class (e.g.,
-\code{"gbm"}, \code{"lm"}, \code{"randomForest"}, \code{"train"}, etc.).}
+\item{object}{A fitted model object of appropriate class (e.g., \code{"gbm"},
+\code{"lm"}, \code{"randomForest"}, \code{"train"}, etc.).}
 
 \item{...}{Additional optional arguments to be passed onto
 \code{\link[stats]{predict}}.}
 
-\item{pred.var}{Character string giving the names of the predictor
-variables of interest. For reasons of computation/interpretation, this
-should include no more than three variables.}
+\item{pred.var}{Character string giving the names of the predictor variables
+of interest. For reasons of computation/interpretation, this should include
+no more than three variables.}
 
 \item{pred.grid}{Data frame containing the joint values of interest for the
 variables listed in \code{pred.var}.}
 
 \item{pred.fun}{Optional prediction function that requires two arguments:
-\code{object} and \code{newdata}. If specified, then the function must
-return a single prediction or a vector of predictions (i.e., not a matrix
-or data frame). Default is \code{NULL}.}
+\code{object} and \code{newdata}. If specified, then the function must return
+a single prediction or a vector of predictions (i.e., not a matrix or data
+frame). Default is \code{NULL}.}
 
 \item{grid.resolution}{Integer giving the number of equally spaced points to
-use (only used for the continuous variables listed in \code{pred.var} when
-\code{pred.grid} is not supplied). If left \code{NULL}, it will default to
+use for the continuous variables listed in \code{pred.var} when
+\code{pred.grid} is not supplied. If left \code{NULL}, it will default to
 the minimum between \code{51} and the number of unique data points for each
 of the continuous independent variables listed in \code{pred.var}.}
 
+\item{ice}{Logical indicating whether or not to compute individual
+conditional expectation (ICE) curves. Default is \code{FALSE}. See
+Goldstein et al. (2014) for details.}
+
+\item{center}{Logical indicating whether or not to produce centered ICE
+curves (c-ICE curves). Only used when \code{ice = TRUE}. Default is
+\code{FALSE}. See Goldstein et al. (2014) for details.}
+
 \item{quantiles}{Logical indicating whether or not to use the sample
-quantiles of the numeric predictors listed in \code{pred.var}. Can only be
-specified when \code{grid.resolution = NULL}.}
+quantiles of the continuous predictors listed in \code{pred.var}. If
+\code{quantiles = TRUE} and \code{grid.resolution = NULL} the sample
+quantiles will be used to generate the grid of joint values for which the
+partial dependence is computed.}
 
 \item{probs}{Numeric vector of probabilities with values in [0,1]. (Values up
 to 2e-14 outside that range are accepted and moved to the nearby endpoint.)
 Default is \code{1:9/10} which corresponds to the deciles of the predictor
-variables.}
+variables. These specify which quantiles to use for the continuous predictors
+listed in \code{pred.var} when \code{quantiles = TRUE}.}
 
 \item{trim.outliers}{Logical indicating whether or not to trim off outliers
-from the numeric predictors (using the simple boxplot method) before
-creating the grid of joint values for which the partial dependence is
-computed. Default is \code{FALSE}.}
+from the continuous predictors listed in \code{pred.var} (using the simple
+boxplot method) before generating the grid of joint values for which the
+partial dependence is computed. Default is \code{FALSE}.}
 
 \item{type}{Character string specifying the type of supervised learning.
 Current options are \code{"auto"}, \code{"regression"} or
-\code{"classification"}. If \code{type = "auto"} then \code{partial} will
-try to extract the necessary information from \code{object}.}
+\code{"classification"}. If \code{type = "auto"} then \code{partial} will try
+to extract the necessary information from \code{object}.}
+
+\item{inv.link}{Function specifying the transformation to be applied to the
+predictions before the partial dependence function is computed
+(experimental). Default is \code{NULL} (i.e., no transofrmation). This option
+is intended to be used for models that allow for non-Gaussian response
+variables (e.g., counts). For these models, predictions are not typically
+returned on the original response scale by default. For example, Poisson GBMs
+typically return predictions on the log scale. In this case setting
+\code{inv.link = exp} will return the partial dependence function on the
+response (i.e., raw count) scale.}
 
 \item{which.class}{Integer specifying which column of the matrix of predicted
-probabilities to use as the "focus" class. Default is to use the first
-class. Only used for classification problems (i.e., when
+probabilities to use as the "focus" class. Default is to use the first class.
+Only used for classification problems (i.e., when
 \code{type = "classification"}).}
 
 \item{prob}{Logical indicating whether or not partial dependence for
 classification problems should be returned on the probability scale, rather
-than the centered logit. If \code{FALSE}, the partial dependence in on a
-scale similar to the logit. Default is \code{FALSE}.}
+than the centered logit. If \code{FALSE}, the partial dependence function is
+on a scale similar to the logit. Default is \code{FALSE}.}
 
 \item{recursive}{Logical indicating whether or not to use the weighted tree
 traversal method described in Friedman (2001). This only applies to objects
 that inherit from class \code{"gbm"}. Default is \code{TRUE} which is much
-faster than the exact brute force approach used for all other models.
-(Based on the C++ code behind \code{\link[gbm]{plot.gbm}}.)}
+faster than the exact brute force approach used for all other models. (Based
+on the C++ code behind \code{\link[gbm]{plot.gbm}}.)}
 
 \item{plot}{Logical indicating whether to return a data frame containing the
 partial dependence values (\code{FALSE}) or plot the partial dependence
@@ -83,17 +105,23 @@ function directly (\code{TRUE}). Default is \code{FALSE}. See
 \item{smooth}{Logical indicating whether or not to overlay a LOESS smooth.
 Default is \code{FALSE}.}
 
-\item{rug}{Logical indicating whether or not to include rug marks on the
-predictor axes. Only used when \code{plot = TRUE}. Default is \code{FALSE}.}
+\item{rug}{Logical indicating whether or not to include a rug display on the
+predictor axes. The tick marks indicate the min/max and deciles of the
+predictor distributions. This helps reduce the risk of interpreting the
+partial dependence plot outside the region of the data (i.e., extrapolating).
+Only used when \code{plot = TRUE}. Default is \code{FALSE}.}
 
-\item{chull}{Logical indicating wether or not to restrict the first
-two variables in \code{pred.var} to lie within the convex hull of their
-training values; this affects \code{pred.grid}. Default is \code{FALSE}.}
+\item{chull}{Logical indicating wether or not to restrict the values of the
+first two variables in \code{pred.var} to lie within the convex hull of their
+training values; this affects \code{pred.grid}. This helps reduce the risk of
+interpreting the partial dependence plot outside the region of the data
+(i.e., extrapolating).Default is \code{FALSE}.}
 
-\item{train}{An optional data frame containing the original training
-data. This may be required depending on the class of \code{object}. For
-objects that do not store a copy of the original training data, this
-argument is required.}
+\item{train}{An optional data frame, matrix, or sparse matrix containing the
+original training data. This may be required depending on the class of
+\code{object}. For objects that do not store a copy of the original training
+data, this argument is required. For reasons discussed below, it is good
+practice to always specify this argument.}
 
 \item{cats}{Character string indicating which columns of \code{train} should
 be treated as categorical variables. Only used when \code{train} inherits
@@ -103,24 +131,30 @@ from class \code{"matrix"} or \code{"dgCMatrix"}.}
 in \code{pred.grid} has the correct class, levels, etc. Default is
 \code{TRUE}.}
 
-\item{progress}{Character string giving the name of the progress bar to use.
-See \code{\link[plyr]{create_progress_bar}} for details. Default is
+\item{progress}{Character string giving the name of the progress bar to use
+while constructing the partial dependence function. See
+\code{\link[plyr]{create_progress_bar}} for details. Default is
 \code{"none"}.}
 
 \item{parallel}{Logical indicating whether or not to run \code{partial} in
 parallel using a backend provided by the \code{foreach} package. Default is
-\code{FALSE}. Default is \code{NULL}.}
+\code{FALSE}.}
 
-\item{paropts}{List containing additional options passed onto
+\item{paropts}{List containing additional options to be passed onto
 \code{\link[foreach]{foreach}} when \code{parallel = TRUE}.}
 }
 \value{
-If \code{plot = FALSE} (the default) \code{partial} returns a data
-frame with the additional class \code{"partial"} that is specially recognized
-by the \code{plotPartial} function. If \code{plot = TRUE} then \code{partial}
-returns a "trellis" object (see \code{\link[lattice]{lattice}} for details)
-with an additional attribute, \code{"partial.data"}, containing the data
-displayed in the plot.
+By default, \code{partial} returns an object of class
+\code{c("data.frame", "partial")}. If \code{ice = TRUE} and
+\code{center = FALSE} then an object of class \code{c("data.frame", "ice")}
+is returned. If \code{ice = TRUE} and \code{center = TRUE} then an object of
+class \code{c("data.frame", "cice")} is returned. These three classes
+determine the behavior of the \code{plotPartial} function which is
+automatically called whenever \code{plot = TRUE}. Specifically, when
+\code{plot = TRUE}, a \code{"trellis"} object is returned (see
+\code{\link[lattice]{lattice}} for details); the \code{"trellis"} object will
+also include an additional attribute, \code{"partial.data"}, containing the
+data displayed in the plot.
 }
 \description{
 Compute partial dependence functions (i.e., marginal effects) for various
@@ -139,22 +173,21 @@ avoided when the training data are passed to the \code{train} argument in the
 call to \code{partial}.
 
 It is recommended to call \code{partial} with \code{plot = FALSE} and store
-the results; this allows for more flexible plotting, and the user will not
+the results. This allows for more flexible plotting, and the user will not
 have to waste time calling \code{partial} again if the default plot is not
 sufficient.
 
 It is possible to retrieve the last printed \code{"trellis"} object, such as
 those produced by \code{plotPartial}, using \code{trellis.last.object()}.
 
-If the prediction function given to \code{pred.fun} returns a prediction for
-each observation in \code{newdata}, then the result will be a PDP for each
-observation. These are called individual conditional expectation (ICE)
-curves; see Goldstein et al. (2015) and \code{\link[ICEbox]{ice}} for
-details.
+If \code{ice = TRUE} or the prediction function given to \code{pred.fun}
+returns a prediction for each observation in \code{newdata}, then the result
+will be a curve for each observation. These are called individual conditional
+expectation (ICE) curves; see Goldstein et al. (2015) and
+\code{\link[ICEbox]{ice}} for details.
 }
 \examples{
 \dontrun{
-
 #
 # Regression example (requires randomForest package to run)
 #
@@ -183,42 +216,16 @@ plotPartial(pd, levelplot = FALSE, zlab = "cmedv", drape = TRUE,
 
 # The autplot function can be used to produce graphics based on ggplot2
 library(ggplot2)
-autoplot(pd, contour = TRUE, contour = TRUE,
-         legend.title = "Partial\\ndependence")
+autoplot(pd, contour = TRUE, legend.title = "Partial\\ndependence")
 
 #
 # Individual conditional expectation (ICE) curves
 #
 
-# Use partial to obtain ICE curves
-pred.ice <- function(object, newdata) predict(object, newdata)
-rm.ice <- partial(boston.rf, pred.var = "rm", pred.fun = pred.ice)
+# Use partial to obtain ICE/c-ICE curves
+rm.ice <- partial(boston.rf, pred.var = "rm", ice = TRUE)
 plotPartial(rm.ice, rug = TRUE, train = boston, alpha = 0.2)
-autoplot(rm.ice, center = FALSE, alpha = 0.2, rug = TRUE, train = boston)
-
-#
-# Centered ICE curves (c-ICE curves) (requires dplyr and ggplot2 to run)
-#
-
-# Post-process rm.ice to obtain c-ICE curves
-library(dplyr)  # for group_by and mutate functions
-rm.cice <- rm.ice \%>\%
-  group_by(yhat.id) \%>\%  # perform next operation within each yhat.id
-  mutate(yhat.centered = yhat - first(yhat))  # so each curve starts at yhat = 0
-
-# ICE curves with their average
-library(ggplot2)
-p1 <- ggplot(rm.ice, aes(rm, yhat)) +
-  geom_line(aes(group = yhat.id), alpha = 0.2) +
-  stat_summary(fun.y = mean, geom = "line", col = "red", size = 1)
-# c-ICE curves with their average
-p2 <- ggplot(rm.cice, aes(rm, yhat.centered)) +
-  geom_line(aes(group = yhat.id), alpha = 0.2) +
-  stat_summary(fun.y = mean, geom = "line", col = "red", size = 1)
-grid.arrange(p1, p2, ncol = 2)
-
-# Or just use autoplot (the default is to center the curves first)
-autoplot(rm.ice, alpha = 0.2, rug = TRUE, train = boston)
+autoplot(rm.ice, center = TRUE, alpha = 0.2, rug = TRUE, train = boston)
 
 #
 # Classification example (requires randomForest package to run)
@@ -229,18 +236,13 @@ data (pima)  # load the boston housing data
 set.seed(102)  # for reproducibility
 pima.rf <- randomForest(diabetes ~ ., data = pima, na.action = na.omit)
 
-# Partial dependence of diabetes test result (neg/pos) on glucose
-partial(pima.rf, pred.var = c("glucose", "age"), plot = TRUE, chull = TRUE,
+# Partial dependence of positive test result on glucose (default logit scale)
+partial(pima.rf, pred.var = "glucose", plot = TRUE, chull = TRUE,
         progress = "text")
 
-# Partial dependence of positive diabetes test result on glucose, plotted on
-# the probability scale, rather than the centered logit
-pfun <- function(object, newdata) {
-  mean(predict(object, newdata, type = "prob")[, "pos"], ne.rm = TRUE)
-}
-partial(pima.rf, pred.var = "glucose", pred.fun = pfun,
-        plot = TRUE, chull = TRUE, progress = "text")
-
+# Partial dependence of positive test result on glucose (probability scale)
+partial(pima.rf, pred.var = "glucose", prob = TRUE, plot = TRUE,
+        chull = TRUE, progress = "text")
 }
 }
 \references{

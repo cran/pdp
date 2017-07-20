@@ -2,22 +2,31 @@
 % Please edit documentation in R/autoplot.R
 \name{autoplot.partial}
 \alias{autoplot.partial}
+\alias{autoplot.ice}
+\alias{autoplot.cice}
 \title{Plotting Partial Dependence Functions}
 \usage{
-\method{autoplot}{partial}(object, center = TRUE, plot.pdp = TRUE,
-  pdp.color = "red", pdp.size = 1, rug = FALSE, smooth = FALSE,
-  smooth.method = "auto", smooth.formula = y ~ x, smooth.span = 0.75,
-  smooth.method.args = list(), contour = FALSE, contour.color = "white",
-  palette = "Spectral", train = NULL, xlab = NULL, ylab = NULL,
-  main = NULL, legend.title = NULL, ...)
+\method{autoplot}{partial}(object, center = FALSE, plot.pdp = TRUE,
+  pdp.color = "red", pdp.size = 1, pdp.linetype = 1, rug = FALSE,
+  smooth = FALSE, smooth.method = "auto", smooth.formula = y ~ x,
+  smooth.span = 0.75, smooth.method.args = list(), contour = FALSE,
+  contour.color = "white", palette = "Spectral", train = NULL,
+  xlab = NULL, ylab = NULL, main = NULL, legend.title = NULL, ...)
+
+\method{autoplot}{ice}(object, center = FALSE, plot.pdp = TRUE,
+  pdp.color = "red", pdp.size = 1, pdp.linetype = 1, rug = FALSE,
+  train = NULL, xlab = NULL, ylab = NULL, main = NULL, ...)
+
+\method{autoplot}{cice}(object, plot.pdp = TRUE, pdp.color = "red",
+  pdp.size = 1, pdp.linetype = 1, rug = FALSE, train = NULL,
+  xlab = NULL, ylab = NULL, main = NULL, ...)
 }
 \arguments{
 \item{object}{An object that inherits from the \code{"partial"} class.}
 
 \item{center}{Logical indicating whether or not to produce centered ICE
-curves (c-ICE curves). Only useful when \code{object} represents a set of
-ICE curves; see \code{\link[pdp]{partial}} for details. Default is
-\code{TRUE}.}
+curves (c-ICE curves). Only useful when \code{object} represents a set of ICE
+curves; see \code{\link[pdp]{partial}} for details. Default is \code{FALSE}.}
 
 \item{plot.pdp}{Logical indicating whether or not to plot the partial
 dependence function on top of the ICE curves. Default is \code{TRUE}.}
@@ -25,8 +34,11 @@ dependence function on top of the ICE curves. Default is \code{TRUE}.}
 \item{pdp.color}{Character string specifying the color to use for the partial
 dependence function when \code{plot.pdp = TRUE}. Default is \code{"red"}.}
 
-\item{pdp.size}{The line width, a positive number, to use for the partial
-dependence function when \code{plot.pdp = TRUE}. Default is \code{1}.}
+\item{pdp.size}{Positive number specifying the line width to use for the
+partial dependence function when \code{plot.pdp = TRUE}. Default is \code{1}.}
+
+\item{pdp.linetype}{Positive number specifying the line type to use for the
+partial dependence function when \code{plot.pdp = TRUE}. Default is \code{1}.}
 
 \item{rug}{Logical indicating whether or not to include rug marks on the
 predictor axes. Default is \code{FALSE}.}
@@ -50,8 +62,7 @@ smoother lines. Default is \code{0.75}.}
 on to the modelling function defined by \code{smooth.method}.}
 
 \item{contour}{Logical indicating whether or not to add contour lines to the
-level plot. Only used when \code{levelplot = TRUE}. Default is
-\code{FALSE}.}
+level plot. Only used when \code{levelplot = TRUE}. Default is \code{FALSE}.}
 
 \item{contour.color}{Character string specifying the color to use for the
 contour lines when \code{contour = TRUE}. Default is \code{"white"}.}
@@ -60,8 +71,8 @@ contour lines when \code{contour = TRUE}. Default is \code{"white"}.}
 index into the list of palettes of appropriate type. Default is
 \code{"Spectral"}.}
 
-\item{train}{Data frame containing the original training data. Only
-required if \code{rug = TRUE} or \code{chull = TRUE}.}
+\item{train}{Data frame containing the original training data. Only required
+if \code{rug = TRUE} or \code{chull = TRUE}.}
 
 \item{xlab}{Charater string specifying the text for the x-axis label.}
 
@@ -80,5 +91,39 @@ A \code{"ggplot"} object.
 }
 \description{
 Plots partial dependence functions (i.e., marginal effects) using
-\code{ggplot2} graphics.
+\code{\link[ggplot2]{ggplot2}} graphics.
+}
+\examples{
+\dontrun{
+#
+# Regression example (requires randomForest package to run)
+#
+
+# Load required packages
+library(ggplot2)  # required to use autoplot
+library(randomForest)
+
+# Fit a random forest to the Boston housing data
+data (boston)  # load the boston housing data
+set.seed(101)  # for reproducibility
+boston.rf <- randomForest(cmedv ~ ., data = boston)
+
+# Partial dependence of cmedv on lstat
+boston.rf \%>\%
+  partial(pred.var = "lstat") \%>\%
+  autoplot(rug = TRUE, train = boston)
+
+# Partial dependence of cmedv on lstat and rm
+boston.rf \%>\%
+  partial(pred.var = c("lstat", "rm"), chull = TRUE, progress = "text") \%>\%
+  autoplot(contour = TRUE, legend.title = "rm")
+
+# ICE curves and c-ICE curves
+age.ice <- partial(boston.rf, pred.var = "lstat", ice = TRUE)
+grid.arrange(
+  autoplot(age.ice, alpha = 0.5),                 # ICE curves
+  autoplot(age.ice, center = TRUE, alpha = 0.5),  # c-ICE curves
+  ncol = 2
+)
+}
 }

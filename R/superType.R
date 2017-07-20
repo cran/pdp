@@ -72,7 +72,8 @@ superType.earth <- function(object) {
       object$glm.list[[1L]]$family$family == "binomial") {
     "classification"
   } else if (is.null(object$glm.list) ||
-             object$glm.list[[1L]]$family$family == "gaussian") {
+             object$glm.list[[1L]]$family$family %in%
+             c("gaussian", "Gamma", "inverse.gaussian", "poisson")) {
     "regression"
   } else {
     "other"
@@ -81,8 +82,15 @@ superType.earth <- function(object) {
 
 
 #' @keywords internal
+superType.fda<- function(object) {
+  "classification"
+}
+
+
+#' @keywords internal
 superType.gbm <- function(object) {
-  if (object$distribution %in% c("gaussian", "laplace", "tdist")) {
+  if (object$distribution %in%
+      c("gaussian", "laplace", "tdist", "gamma", "poisson", "tweedie")) {
     "regression"
   } else if (object$distribution %in%
              c("bernoulli", "huberized", "multinomial", "adaboost")) {
@@ -153,6 +161,16 @@ superType.nls <- function(object) {
 }
 
 
+#' @keywords internal
+superType.nnet <- function(object) {
+  if (is.null(object$lev)) {
+    "regression"
+  } else {
+    "classification"
+  }
+}
+
+
 superType.party <- function(object) {
   if (attr(object$terms, "response") == 1 &&
       attr(object$terms, "dataClasses")[1L] == "numeric") {
@@ -164,7 +182,6 @@ superType.party <- function(object) {
     "other"
   }
 }
-
 
 
 #' @keywords internal
@@ -210,7 +227,8 @@ superType.randomForest <- function(object) {
 superType.ranger <- function(object) {
   if (object$treetype == "Regression") {
     "regression"
-  } else if (object$treetype == "Probability estimation") {
+  } else if (object$treetype %in%
+             c("Classification", "Probability estimation")) {
     "classification"
   } else {
     "other"
@@ -260,7 +278,8 @@ superType.train <- function(object) {
 
 #' @keywords internal
 superType.xgb.Booster <- function(object) {
-  if (object$params$objective == "reg:linear") {
+  if (object$params$objective %in%
+      c("reg:linear", "count:poisson", "reg:gamma")) {
     "regression"
   } else if (object$params$objective %in%
              c("binary:logistic", "multi:softprob")) {

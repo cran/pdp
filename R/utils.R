@@ -38,6 +38,54 @@ NULL
 
 
 #' @keywords internal
+averageIceCurves <- function(object) {
+  UseMethod("averageIceCurves")
+}
+
+
+#' @keywords internal
+averageIceCurves.ice <- function(object) {
+  yhat <- tapply(object[["yhat"]], INDEX = as.factor(object[[1L]]),
+                 FUN = mean, simplify = FALSE)
+  res <- data.frame("x" = object[seq_len(length(yhat)), 1L, drop = TRUE],
+                    "yhat" = unlist(yhat))
+  names(res)[1L] <- names(object)[1L]
+  res
+}
+
+
+#' @keywords internal
+averageIceCurves.cice <- function(object) {
+  averageIceCurves.ice(object)
+}
+
+
+#' @keywords internal
+averageIceCurves.partial <- function(object) {
+  averageIceCurves.ice(object)
+}
+
+
+#' @keywords internal
+centerIceCurves <- function(object) {
+  UseMethod("centerIceCurves")
+}
+
+
+#' @keywords internal
+centerIceCurves.ice <- function(object) {
+  yhat <- tapply(object[["yhat"]], INDEX = as.factor(object[["yhat.id"]]),
+                 FUN = function(x) x - x[1L], simplify = FALSE)
+  res <- data.frame("x" = object[[1L]],
+                    "yhat" = unlist(yhat),
+                    "yhat.id" = object["yhat.id"])
+  names(res)[1L] <- names(object)[1L]
+  class(res) <- c("data.frame", "cice")
+  res
+}
+
+
+#' @keywords internal
 copyClasses <- function(x, y) {
   x.names <- names(x)
   y.names <- names(y)
@@ -84,15 +132,27 @@ copyClasses <- function(x, y) {
 
 
 #' @keywords internal
-avgLogit <- function(x, which.class = 1L) {
+multiClassLogit <- function(x, which.class = 1L) {
   if (is.data.frame(x)) {
     x <- data.matrix(x)
   }
   stopifnot(is.matrix(x))  # x should be a nclass by n probability matrix
   eps <- .Machine$double.eps
-  mean(log(ifelse(x[, which.class] > 0, x[, which.class], eps)) -
-         rowMeans(log(ifelse(x > 0, x, eps))), na.rm = TRUE)
+  log(ifelse(x[, which.class] > 0, x[, which.class], eps)) -
+    rowMeans(log(ifelse(x > 0, x, eps)))
 }
+
+
+#' #' @keywords internal
+#' avgLogit <- function(x, which.class = 1L) {
+#'   if (is.data.frame(x)) {
+#'     x <- data.matrix(x)
+#'   }
+#'   stopifnot(is.matrix(x))  # x should be a nclass by n probability matrix
+#'   eps <- .Machine$double.eps
+#'   mean(log(ifelse(x[, which.class] > 0, x[, which.class], eps)) -
+#'          rowMeans(log(ifelse(x > 0, x, eps))), na.rm = TRUE)
+#' }
 
 
 #' @keywords internal

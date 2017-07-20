@@ -1,5 +1,16 @@
 # NEWS for pdp package
 
+### Changes for version 0.6.0
+* Properly registered native routines and disabled symbol search.
+* Fixed a bug for `gbm` models using the multinomial distribution.
+* Refactored code to improve structure.
+* `partial` gained three new options: `inv.link` (experimental), `ice`, and `center`. The latter two have to do with constructing individual conditional expectation (ICE) curves and cetered ICE (c-ICE) curves. The `inv.link` option is for transforming predictions from models that can use non-Gaussian distibutions (e.g., `glm`, `gbm`, and `xgboost`). Note that these options were added for convenience and the same results (plus much more) can still be obtained using the flexible `pred.fun` argument. [(#36)](https://github.com/bgreenwell/pdp/issues/36).
+* `plotPartial` gained five new options: `center`, `plot.pdp`, `pdp.col`, `pdp.lwd`, and `pdp.lty`; see `?plotPartial` for details.
+* Fixed default y-axis label for `autoplot` with two numeric predictors [(#48)](https://github.com/bgreenwell/pdp/issues/48).
+* Added `CITATION` file.
+* Better support for neuaral networks from the `nnet` package.
+* Fixed a bug for `nnet::multinom` models with binary response.
+
 ### Changes for version 0.5.2
 * Fixed minor pandoc conversion issue with `README.md`.
 * Added subdirectory called `tools` to hold figures for `README.md`.
@@ -11,7 +22,7 @@
 * Added support for `MASS::lda`, `MASS::qda`, and `mda::mars`.
 * New arguments `quantiles`, `probs`, and `trim.outliers` in `partial`. These arguments make it easier to construct PDPs over the relevant range of a numeric predictor without having to specify `pred.grid`, especially when outliers are present in the predictors (which can distort the plotted relationship).
 * The `train` argument can now accept matrices; in particular, object of class `"matrix"` or `"dgCMatrix"`. This is useful, for example, when working with XGBoost models (i.e., objects of class `"xgb.Booster"`).
-* New logical argument `prob` indicating whether or not partial dependence values for classification problems should be returned on the original probability scale, rather than the centered logit; details for the centered logit can be found on page 370 in the second edition of [*The Elements of Statistical Learning*](https://statweb.stanford.edu/~tibs/ElemStatLearn/).
+* New logical argument `prob` indicating whether or not partial dependence values for classification problems should be returned on the original probability scale, rather than the centered logit; details for the centered logit can be found on page 370 in the second edition of *The Elements of Statistical Learning*.
 * Fixed some typos in `NEWS.md`.
 * New function `autoplot` for automatically creating `ggplot2` graphics from `"partial"` objects.
 
