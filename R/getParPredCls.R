@@ -13,7 +13,7 @@ getParClsProb <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.default <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, type = "prob", ...)
-  mean(multiClassLogit(pr, which.class = which.class), na.rm = TRUE)
+  mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
 }
 
 
@@ -27,7 +27,7 @@ getParClsProb.default <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.BinaryTree <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, type = "prob", ...)
-  mean(multiClassLogit(do.call(rbind, pr), which.class = which.class),
+  mean(multiclass_logit(do.call(rbind, pr), which.class = which.class),
        na.rm = TRUE)
 }
 
@@ -42,7 +42,7 @@ getParClsProb.BinaryTree <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.bagging <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, ...)$prob
-  mean(multiClassLogit(pr, which.class = which.class), na.action = TRUE)
+  mean(multiclass_logit(pr, which.class = which.class), na.action = TRUE)
 }
 
 
@@ -56,7 +56,7 @@ getParClsProb.bagging <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.boosting <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, ...)$prob
-  mean(multiClassLogit(pr, which.class = which.class), na.rm = TRUE)
+  mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
 }
 
 
@@ -70,7 +70,7 @@ getParClsProb.boosting <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.earth <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, type = "response", ...)
-  mean(multiClassLogit(cbind(pr, 1 - pr), which.class = which.class),
+  mean(multiclass_logit(cbind(pr, 1 - pr), which.class = which.class),
        na.rm = TRUE)
 }
 
@@ -85,7 +85,7 @@ getParClsProb.earth <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.fda <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, type = "posterior", ...)
-  mean(multiClassLogit(pr, which.class = which.class),
+  mean(multiclass_logit(pr, which.class = which.class),
        na.rm = TRUE)
 }
 
@@ -105,11 +105,11 @@ getParClsLogit.gbm <- function(object, newdata, which.class, ...) {
   # It seems that when the response has more than two levels, predict.gbm
   # returns an array. When the response is binary, a vector with predictions
   # for the positive class is returned returned.
-  if (ncol(pr) == 1) {
-    mean(multiClassLogit(cbind(pr, 1 - pr), which.class = which.class),
+  if (NCOL(pr) == 1) {
+    mean(multiclass_logit(cbind(pr, 1 - pr), which.class = which.class),
          na.rm = TRUE)
   } else {
-    mean(multiClassLogit(pr[, , 1], which.class = which.class), na.rm = TRUE)
+    mean(multiclass_logit(pr[, , 1], which.class = which.class), na.rm = TRUE)
   }
 }
 
@@ -122,7 +122,7 @@ getParClsProb.gbm <- function(object, newdata, which.class, ...) {
   # It seems that when the response has more than two levels, predict.gbm
   # returns an array. When the response is binary, a vector with predictions
   # for the positive class is returned returned.
-  if (ncol(pr) == 1) {
+  if (NCOL(pr) == 1) {
     mean(cbind(pr, 1 - pr)[, which.class], na.rm = TRUE)
   } else {
     mean(pr[, which.class, 1], na.rm = TRUE)
@@ -133,7 +133,7 @@ getParClsProb.gbm <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.glm <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, type = "response", ...)
-  mean(multiClassLogit(cbind(pr, 1 - pr), which.class = which.class),
+  mean(multiclass_logit(cbind(pr, 1 - pr), which.class = which.class),
        na.rm = TRUE)
 }
 
@@ -152,7 +152,7 @@ getParClsLogit.ksvm <- function(object, newdata, which.class, ...) {
                deparse(substitute(object))))
   }
   pr <- kernlab::predict(object, newdata = newdata, type = "probabilities", ...)
-  mean(multiClassLogit(pr, which.class = which.class), na.rm = TRUE)
+  mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
 }
 
 
@@ -171,13 +171,27 @@ getParClsProb.ksvm <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.lda <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, ...)$posterior
-  mean(multiClassLogit(pr, which.class = which.class), na.rm = TRUE)
+  mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
 }
 
 
 #' @keywords internal
 getParClsProb.lda <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, ...)$posterior
+  mean(pr[, which.class], na.rm = TRUE)
+}
+
+
+#' @keywords internal
+getParClsLogit.naiveBayes <- function(object, newdata, which.class, ...) {
+  pr <- stats::predict(object, newdata = newdata, type = "raw", ...)
+  mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
+}
+
+
+#' @keywords internal
+getParClsProb.naiveBayes <- function(object, newdata, which.class, ...) {
+  pr <- stats::predict(object, newdata = newdata, type = "raw", ...)
   mean(pr[, which.class], na.rm = TRUE)
 }
 
@@ -195,10 +209,10 @@ getParClsLogit.nnet <- function(object, newdata, which.class, ...) {
   # returned. For multinomial models, a vector is returned when the response has
   # only two classes.
   if (is.null(ncol(pr)) || ncol(pr) == 1) {
-    mean(multiClassLogit(cbind(pr, 1 - pr), which.class = which.class),
+    mean(multiclass_logit(cbind(pr, 1 - pr), which.class = which.class),
          na.rm = TRUE)
   } else {
-    mean(multiClassLogit(pr, which.class = which.class), na.rm = TRUE)
+    mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
   }
 }
 
@@ -226,7 +240,7 @@ getParClsProb.nnet <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.qda <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, ...)$posterior
-  mean(multiClassLogit(pr, which.class = which.class), na.rm = TRUE)
+  mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
 }
 
 
@@ -241,7 +255,7 @@ getParClsProb.qda <- function(object, newdata, which.class, ...) {
 #' @keywords internal
 getParClsLogit.RandomForest <- function(object, newdata, which.class, ...) {
   pr <- stats::predict(object, newdata = newdata, type = "prob", ...)
-  mean(multiClassLogit(do.call(rbind, pr), which.class = which.class),
+  mean(multiclass_logit(do.call(rbind, pr), which.class = which.class),
        na.rm = TRUE)
 }
 
@@ -260,7 +274,7 @@ getParClsLogit.ranger <- function(object, newdata, which.class, ...) {
                deparse(substitute(object))))
   }
   pr <- stats::predict(object, data = newdata, ...)$predictions
-  mean(multiClassLogit(pr, which.class = which.class), na.rm = TRUE)
+  mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
 }
 
 
@@ -283,7 +297,7 @@ getParClsLogit.svm <- function(object, newdata, which.class, ...) {
   }
   pr <- attr(stats::predict(object, newdata = newdata, probability = TRUE, ...),
              which = "probabilities")
-  mean(multiClassLogit(pr, which.class = which.class), na.rm = TRUE)
+  mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
 }
 
 
@@ -306,7 +320,7 @@ getParClsLogit.xgb.Booster <- function(object, newdata, which.class,
   if (object$params$objective == "binary:logistic") {
     pr <- cbind(pr, 1 - pr)
   }
-  mean(multiClassLogit(pr, which.class = which.class), na.rm = TRUE)
+  mean(multiclass_logit(pr, which.class = which.class), na.rm = TRUE)
 }
 
 

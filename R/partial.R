@@ -56,7 +56,7 @@
 #'
 #' @param inv.link Function specifying the transformation to be applied to the
 #' predictions before the partial dependence function is computed
-#' (experimental). Default is \code{NULL} (i.e., no transofrmation). This option
+#' (experimental). Default is \code{NULL} (i.e., no transformation). This option
 #' is intended to be used for models that allow for non-Gaussian response
 #' variables (e.g., counts). For these models, predictions are not typically
 #' returned on the original response scale by default. For example, Poisson GBMs
@@ -85,6 +85,10 @@
 #' function directly (\code{TRUE}). Default is \code{FALSE}. See
 #' \code{\link{plotPartial}} for plotting details.
 #'
+#' @param plot.engine Character string specifying which plotting engine to use
+#' whenever \code{plot = TRUE}. Options include \code{"lattice"} (default) or
+#' \code{"ggplot2"}.
+#'
 #' @param smooth Logical indicating whether or not to overlay a LOESS smooth.
 #' Default is \code{FALSE}.
 #'
@@ -94,7 +98,25 @@
 #' partial dependence plot outside the region of the data (i.e., extrapolating).
 #' Only used when \code{plot = TRUE}. Default is \code{FALSE}.
 #'
-#' @param chull Logical indicating wether or not to restrict the values of the
+#' @param levelplot Logical indicating whether or not to use a false color level
+#' plot (\code{TRUE}) or a 3-D surface (\code{FALSE}). Default is \code{TRUE}.
+#'
+#' @param contour Logical indicating whether or not to add contour lines to the
+#' level plot. Only used when \code{levelplot = TRUE}. Default is \code{FALSE}.
+#'
+#' @param contour.color Character string specifying the color to use for the
+#' contour lines when \code{contour = TRUE}. Default is \code{"white"}.
+#'
+#' @param palette Character string indicating the colormap option to use. Five
+#' options are available: "viridis" (the default), "magma", "inferno", "plasma",
+#' and "cividis".
+#'
+#' @param alpha Numeric value in \code{[0, 1]} specifying the opacity alpha (
+#' most useful when plotting ICE/c-ICE curves). Default is 1 (i.e., no
+#' transparency). In fact, this option only affects ICE/c-ICE curves and level
+#' plots.
+#'
+#' @param chull Logical indicating whether or not to restrict the values of the
 #' first two variables in \code{pred.var} to lie within the convex hull of their
 #' training values; this affects \code{pred.grid}. This helps reduce the risk of
 #' interpreting the partial dependence plot outside the region of the data
@@ -244,18 +266,20 @@ partial <- function(object, ...) {
 
 
 #' @rdname partial
+#'
 #' @export
-partial.default <- function(object, pred.var, pred.grid, pred.fun = NULL,
-                            grid.resolution = NULL, ice = FALSE, center = FALSE,
-                            quantiles = FALSE, probs = 1:9/10,
-                            trim.outliers = FALSE,
-                            type = c("auto", "regression", "classification"),
-                            inv.link = NULL,
-                            which.class = 1L, prob = FALSE, recursive = TRUE,
-                            plot = FALSE, smooth = FALSE, rug = FALSE,
-                            chull = FALSE, train, cats = NULL,
-                            check.class = TRUE, progress = "none",
-                            parallel = FALSE, paropts = NULL, ...) {
+partial.default <- function(
+  object, pred.var, pred.grid, pred.fun = NULL, grid.resolution = NULL,
+  ice = FALSE, center = FALSE, quantiles = FALSE, probs = 1:9/10,
+  trim.outliers = FALSE, type = c("auto", "regression", "classification"),
+  inv.link = NULL, which.class = 1L, prob = FALSE, recursive = TRUE,
+  plot = FALSE, plot.engine = c("lattice", "ggplot2"),
+  smooth = FALSE, rug = FALSE, chull = FALSE, levelplot = TRUE,
+  contour = FALSE, contour.color = "white",
+  palette = c("viridis", "magma", "inferno", "plasma", "cividis"), alpha = 1,
+  train, cats = NULL, check.class = TRUE, progress = "none", parallel = FALSE,
+  paropts = NULL, ...
+) {
 
   # Check prediction function if given
   if (!is.null(pred.fun)) {
@@ -273,7 +297,7 @@ partial.default <- function(object, pred.var, pred.grid, pred.fun = NULL,
 
   # Try to extract training data (hard problem) if not provided
   if (missing(train)) {
-    train <- getTrainingData(object)
+    train <- get_training_data(object)
   }
 
   # Convert the training data to a matrix for XGBoost models
@@ -306,9 +330,10 @@ partial.default <- function(object, pred.var, pred.grid, pred.fun = NULL,
 
   # Generate grid of predictor values
   pred.grid <- if (missing(pred.grid)) {
-    predGrid(train = train, pred.var = pred.var,
-             grid.resolution = grid.resolution, quantiles = quantiles,
-             probs = probs, trim.outliers = trim.outliers)
+    pred_grid(
+      train = train, pred.var = pred.var, grid.resolution = grid.resolution,
+      quantiles = quantiles, probs = probs, trim.outliers = trim.outliers
+    )
   } else {
     if (!is.data.frame(pred.grid)) {
       stop("`pred.grid` shoud be a data frame.")
@@ -323,14 +348,14 @@ partial.default <- function(object, pred.var, pred.grid, pred.fun = NULL,
           warning(paste("Options `quantiles` and `trim.outliers`",
                         "ignored whenever `pred.grid` is specified."))
         }
-        orderGrid(pred.grid)
+        order_grid(pred.grid)
       }
     }
   }
 
   # Make sure each column has the correct class, levels, etc.
   if (inherits(train, "data.frame") && check.class) {
-    pred.grid <- copyClasses(pred.grid, train)
+    pred.grid <- copy_classes(pred.grid, train)
   }
 
   # Convert pred.grid to the same class as train if train is not a data frame
@@ -343,13 +368,13 @@ partial.default <- function(object, pred.var, pred.grid, pred.fun = NULL,
 
   # Restrict grid to covext hull of first two columns
   if (chull) {
-    pred.grid <- trainCHull(pred.var, pred.grid = pred.grid, train = train)
+    pred.grid <- train_chull(pred.var, pred.grid = pred.grid, train = train)
   }
 
   # Determine the type of supervised learning used
   type <- match.arg(type)
   if (type == "auto" && is.null(pred.fun)) {
-    type <- superType(object)  # determine if regression or classification
+    type <- super_type(object)  # determine if regression or classification
   }
 
   # Display warning for GBM objects when recursive = TRUE and ice = TRUE
@@ -427,9 +452,9 @@ partial.default <- function(object, pred.var, pred.grid, pred.fun = NULL,
     if (ice || any(grepl("^yhat\\.", names(pd.df)))) {  # multiple curves
 
       # Convert from wide to long format
-      pd.df <- stats::reshape(pd.df,
-                              varying = (length(pred.var) + 1):ncol(pd.df),
-                              direction = "long")  # wide to long format
+      pd.df <- stats::reshape(
+        pd.df, varying = (length(pred.var) + 1):ncol(pd.df), direction = "long"
+      )
       pd.df$id <- NULL  # remove id column
       pd.df <- pd.df[, c(pred.var, "yhat", "time")]  # rearrange columns
       names(pd.df)[ncol(pd.df)] <- "yhat.id"  # rename "time" column
@@ -439,7 +464,7 @@ partial.default <- function(object, pred.var, pred.grid, pred.fun = NULL,
 
       # c-ICE curves
       if (center) {
-        pd.df <- centerIceCurves(pd.df)
+        pd.df <- center_ice_curves(pd.df)
         if (type == "classification" && prob) {
           warning("Centering may result in probabilities outside of [0, 1].")
           pd.df$yhat <- pd.df$yhat + 0.5
@@ -455,20 +480,39 @@ partial.default <- function(object, pred.var, pred.grid, pred.fun = NULL,
   }
 
   # Plot partial dependence function (if requested)
-  if (plot) {  # return a graph (i.e., a "trellis" object)
-    res <- if (ice) {
-      if (center) {
-        plotPartial(pd.df, plot.pdp = TRUE, rug = rug, train = train,
-                    col.regions = viridis::viridis, alpha = 0.5)
+  if (plot) {  # return a graph (i.e., a "trellis" or "ggplot" object)
+    plot.engine <- match.arg(plot.engine)
+    res <- if (inherits(pd.df, what = "ice")) {
+      if (plot.engine == "ggplot2") {
+        autoplot(
+          object = pd.df, plot.pdp = TRUE, rug = rug, train = train,
+          alpha = alpha
+        )
       } else {
-        plotPartial(pd.df, center = FALSE, plot.pdp = TRUE, rug = rug,
-                    train = train, col.regions = viridis::viridis, alpha = 0.5)
+        plotPartial(
+          object = pd.df, plot.pdp = TRUE, rug = rug, train = train,
+          alpha = alpha,
+        )
       }
     } else {
-      plotPartial(pd.df, smooth = smooth, rug = rug, train = train,
-                  col.regions = viridis::viridis)
+      # palette = match.arg(palette)
+      if (plot.engine == "ggplot2") {
+        autoplot(
+          object = pd.df, smooth = smooth, rug = rug, train = train,
+          contour = contour, contour.color = contour.color, palette = palette,
+          alpha = alpha
+        )
+      } else {
+        plotPartial(
+          object = pd.df, smooth = smooth, rug = rug, train = train,
+          levelplot = levelplot, contour = contour,
+          contour.color = contour.color,
+          screen = list(z = -30, x = -60),  # sensible default?
+          palette = palette, alpha = alpha
+        )
+      }
     }
-    attr(res, "partial.data") <- pd.df  # attach partial data as an attribute
+    attr(res, "partial.data") <- pd.df  # attach PDP data as an attribute
   } else {  # return a data frame (i.e., a "data.frame" and "partial" object)
     res <- pd.df
   }

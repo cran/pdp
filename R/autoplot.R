@@ -40,36 +40,36 @@
 #' smoother lines. Default is \code{0.75}.
 #'
 #' @param smooth.method.args List containing additional arguments to be passed
-#' on to the modelling function defined by \code{smooth.method}.
+#' on to the modeling function defined by \code{smooth.method}.
 #'
 #' @param contour Logical indicating whether or not to add contour lines to the
-#' level plot. Only used when \code{levelplot = TRUE}. Default is \code{FALSE}.
+#' level plot.
 #'
 #' @param contour.color Character string specifying the color to use for the
 #' contour lines when \code{contour = TRUE}. Default is \code{"white"}.
 #'
-#' @param palette If a string, will use that named palette. If a number, will
-#' index into the list of palettes of appropriate type. Default is
-#' \code{"Spectral"}.
+#' @param palette Character string indicating the colormap option to use. Five
+#' options are available: "viridis" (the default), "magma", "inferno", "plasma",
+#' and "cividis".
 #'
 #' @param train Data frame containing the original training data. Only required
 #' if \code{rug = TRUE} or \code{chull = TRUE}.
 #'
-#' @param xlab Charater string specifying the text for the x-axis label.
+#' @param xlab Character string specifying the text for the x-axis label.
 #'
-#' @param ylab Charater string specifying the text for the y-axis label.
+#' @param ylab Character string specifying the text for the y-axis label.
 #'
 #' @param main Character string specifying the text for the main title of the
 #' plot.
 #'
-#' @param legend.title Charater string specifying the text for the legend title.
+#' @param legend.title Character string specifying the text for the legend title.
 #' Default is \code{"yhat"}.
 #'
 #' @param ... Additional optional arguments to be passed onto \code{geom_line}.
 #'
 #' @return A \code{"ggplot"} object.
 #'
-#' @importFrom ggplot2 aes_string autoplot facet_wrap geom_contour geom_line
+#' @importFrom ggplot2 aes autoplot facet_wrap geom_contour geom_line
 #'
 #' @importFrom ggplot2 geom_point geom_rug geom_smooth geom_tile ggplot ggtitle
 #'
@@ -112,15 +112,14 @@
 #'   ncol = 2
 #' )
 #' }
-autoplot.partial <- function(object, center = FALSE, plot.pdp = TRUE,
-                             pdp.color = "red", pdp.size = 1, pdp.linetype = 1,
-                             rug = FALSE, smooth = FALSE,
-                             smooth.method = "auto", smooth.formula = y ~ x,
-                             smooth.span = 0.75, smooth.method.args = list(),
-                             contour = FALSE, contour.color = "white",
-                             palette = "Spectral", train = NULL,
-                             xlab = NULL, ylab = NULL, main = NULL,
-                             legend.title = NULL, ...) {
+autoplot.partial <- function(
+  object, center = FALSE, plot.pdp = TRUE, pdp.color = "red", pdp.size = 1,
+  pdp.linetype = 1, rug = FALSE, smooth = FALSE, smooth.method = "auto",
+  smooth.formula = y ~ x, smooth.span = 0.75, smooth.method.args = list(),
+  contour = FALSE, contour.color = "white",
+  palette = c("viridis", "magma", "inferno", "plasma", "cividis"), train = NULL,
+  xlab = NULL, ylab = NULL, main = NULL, legend.title = "yhat", ...
+) {
 
   # Determine if object contains an ID column (i.e., multiple curves)
   multi <- "yhat.id" %in% names(object)
@@ -133,69 +132,95 @@ autoplot.partial <- function(object, center = FALSE, plot.pdp = TRUE,
   }
 
   # Generate plot
-  if (multi) {
-    ggPlotIceCurves(object, center = center, plot.pdp = plot.pdp,
-                    pdp.color = pdp.color, pdp.size = pdp.size,
-                    pdp.linetype = 1, rug = rug, train = train, xlab = xlab,
-                    ylab = ylab, main = main, ...)
-  } else if (nx == 1L) {  # single predictor
-    ggPlotOnePredictorPDP(object, rug = rug, smooth = smooth,
-                          smooth.method = smooth.method,
-                          smooth.formula = smooth.formula,
-                          smooth.span = smooth.span,
-                          smooth.method.args = smooth.method.args,
-                          train = train, xlab = xlab, ylab = ylab, main = main,
-                          ...)
+  if (multi) {  # user-supplied prediction function
+
+    # Call workhorse function
+    ggplot_ice_curves(  # ICE curves from user-specified prediction function
+      object = object, center = center, plot.pdp = plot.pdp,
+      pdp.color = pdp.color, pdp.size = pdp.size, pdp.linetype = 1, rug = rug,
+      train = train, xlab = xlab, ylab = ylab, main = main, ...
+    )
+
+  } else if (nx == 1L) {  # one predictor
+
+    # Call workhorse function
+    ggplot_one_predictor_pdp(  # single predictor PDP
+      object = object, rug = rug, smooth = smooth,
+      smooth.method = smooth.method, smooth.formula = smooth.formula,
+      smooth.span = smooth.span, smooth.method.args = smooth.method.args,
+      train = train, xlab = xlab, ylab = ylab, main = main, ...
+    )
+
   } else if (nx == 2L) {  # two predictors
-    ggPlotTwoPredictorPDP(object, rug = rug, smooth = smooth,
-                          smooth.method = smooth.method,
-                          smooth.formula = smooth.formula,
-                          smooth.span = smooth.span,
-                          smooth.method.args = smooth.method.args,
-                          contour = contour, contour.color = contour.color,
-                          palette = palette, train = train, xlab = xlab,
-                          ylab = ylab, main = main, legend.title = legend.title,
-                          ...)
+
+    # Call workhorse function
+    palette <- match.arg(palette)  # match color palette
+    ggplot_two_predictor_pdp(  # two predictor PDP
+      object = object, rug = rug, smooth = smooth,
+      smooth.method = smooth.method, smooth.formula = smooth.formula,
+      smooth.span = smooth.span, smooth.method.args = smooth.method.args,
+      contour = contour, contour.color = contour.color, palette = palette,
+      train = train, xlab = xlab, ylab = ylab, main = main,
+      legend.title = legend.title, ...
+    )
+
   } else {  # more than two predictors
-    stop("autoplot does not currently support more than two predictors")
+
+    # Throw error
+    stop("`autoplot()` does not currently support PDPs with more than two ",
+         "predictors.")
+
   }
 
 }
 
 
 #' @rdname autoplot.partial
+#'
 #' @export
-autoplot.ice <- function(object, center = FALSE, plot.pdp = TRUE,
-                         pdp.color = "red", pdp.size = 1, pdp.linetype = 1,
-                         rug = FALSE, train = NULL, xlab = NULL, ylab = NULL,
-                         main = NULL, ...) {
-  ggPlotIceCurves(object, center = center, plot.pdp = plot.pdp,
-                  pdp.color = pdp.color, pdp.size = pdp.size,
-                  pdp.linetype = pdp.linetype, rug = rug, train = train,
-                  xlab = xlab, ylab = ylab, main = main, ...)
+autoplot.ice <- function(
+  object, center = FALSE, plot.pdp = TRUE, pdp.color = "red", pdp.size = 1,
+  pdp.linetype = 1, rug = FALSE, train = NULL, xlab = NULL, ylab = NULL,
+  main = NULL, ...
+) {
+
+  # Call workhorse function
+  ggplot_ice_curves(  # ICE curves
+    object = object, center = center, plot.pdp = plot.pdp,
+    pdp.color = pdp.color, pdp.size = pdp.size, pdp.linetype = pdp.linetype,
+    rug = rug, train = train, xlab = xlab, ylab = ylab, main = main, ...
+  )
+
 }
 
 
 #' @rdname autoplot.partial
+#'
 #' @export
-autoplot.cice <- function(object, plot.pdp = TRUE, pdp.color = "red",
-                          pdp.size = 1, pdp.linetype = 1, rug = FALSE,
-                          train = NULL, xlab = NULL, ylab = NULL, main = NULL,
-                          ...) {
-  ggPlotIceCurves(object, center = FALSE, plot.pdp = plot.pdp,
-                  pdp.color = pdp.color, pdp.size = pdp.size,
-                  pdp.linetype = pdp.linetype, rug = rug, train = train,
-                  xlab = xlab, ylab = ylab, main = main, ...)
+autoplot.cice <- function(
+  object, plot.pdp = TRUE, pdp.color = "red", pdp.size = 1, pdp.linetype = 1,
+  rug = FALSE, train = NULL, xlab = NULL, ylab = NULL, main = NULL, ...
+) {
+
+  # Call workhorse function
+  ggplot_ice_curves(  # c-ICE curves
+    object = object, center = FALSE, plot.pdp = plot.pdp, pdp.color = pdp.color,
+    pdp.size = pdp.size, pdp.linetype = pdp.linetype, rug = rug, train = train,
+    xlab = xlab, ylab = ylab, main = main, ...
+  )
+
 }
 
 
 #' @keywords internal
-ggPlotIceCurves <- function(object, center, plot.pdp, pdp.color, pdp.size,
-                            pdp.linetype, rug, train, xlab, ylab, main, ...) {
+ggplot_ice_curves <- function(
+  object, center, plot.pdp, pdp.color, pdp.size, pdp.linetype, rug, train,
+  xlab, ylab, main, ...
+) {
 
   # Should the curves be centered to start at yhat = 0?
   if (center) {
-    object <- centerIceCurves(object)
+    object <- center_ice_curves(object)
   }
 
   # Use the first column to determine which type of plot to construct
@@ -203,26 +228,30 @@ ggPlotIceCurves <- function(object, center, plot.pdp, pdp.color, pdp.size,
 
     # Draw scatterplots
     p <- ggplot(object,
-                aes_string(x = names(object)[[1L]], y = "yhat", group = 1)) +
-      geom_line(aes_string(group = "yhat.id"), ...) +
-      geom_point(aes_string(group = "yhat.id"), alpha = 1)
+                aes(x = object[[1L]], y = object[["yhat"]], group = 1)) +
+      geom_line(aes(group = object[["yhat.id"]]), ...) +
+      geom_point(aes(group = object[["yhat.id"]]), alpha = 1)
 
     # Should the PDP be displayed too?
     if (plot.pdp) {
-      p <- p + stat_summary(fun.y = mean, geom = "line", col = pdp.color,
-                            size = pdp.size, linetype = pdp.linetype)
+      p <- p + stat_summary(
+        fun.y = mean, geom = "line", col = pdp.color, size = pdp.size,
+        linetype = pdp.linetype
+      )
     }
 
   } else {
 
     # Draw lineplots
-    p <- ggplot(object, aes_string(x = names(object)[[1L]], y = "yhat")) +
-      geom_line(aes_string(group = "yhat.id"), ...)
+    p <- ggplot(object, aes(x = object[[1L]], y = object[["yhat"]])) +
+      geom_line(aes(group = object[["yhat.id"]]), ...)
 
     # Should the PDP be displayed too?
     if (plot.pdp) {
-      p <- p + stat_summary(fun.y = mean, geom = "line", col = pdp.color,
-                            size = pdp.size, linetype = pdp.linetype)
+      p <- p + stat_summary(
+        fun.y = mean, geom = "line", col = pdp.color, size = pdp.size,
+        linetype = pdp.linetype
+      )
     }
 
     # Add rug plot to x-axis
@@ -234,8 +263,8 @@ ggPlotIceCurves <- function(object, center, plot.pdp, pdp.color, pdp.size,
         x.rug <- data.frame(as.numeric(
           stats::quantile(train[, x.name, drop = TRUE], probs = 0:10/10,
                           na.rm = TRUE)))
-        p <- p + geom_rug(data = x.rug, aes_string(x = names(x.rug)[1L]),
-                          sides = "b", inherit.aes = FALSE)
+        p <- p + geom_rug(data = x.rug, aes(x = x.rug[[1L]]),csides = "b",
+                          inherit.aes = FALSE)
       }
     }
 
@@ -263,22 +292,22 @@ ggPlotIceCurves <- function(object, center, plot.pdp, pdp.color, pdp.size,
 
 
 #' @keywords internal
-ggPlotOnePredictorPDP <- function(object, rug, smooth, smooth.method,
-                                  smooth.formula, smooth.span,
-                                  smooth.method.args, train, xlab, ylab, main,
-                                  ...) {
+ggplot_one_predictor_pdp <- function(
+  object, rug, smooth, smooth.method, smooth.formula, smooth.span,
+  smooth.method.args, train, xlab, ylab, main, ...
+) {
 
   # Use the first column to determine which type of plot to construct
   if (is.factor(object[[1L]])) {
 
     # Draw a scatterplot
-    p <- ggplot(object, aes_string(x = names(object)[[1L]], y = "yhat")) +
+    p <- ggplot(object, aes(x = object[[1L]], y = object[["yhat"]])) +
       geom_point(...)
 
   } else {
 
     # Draw a lineplot
-    p <- ggplot(object, aes_string(x = names(object)[[1L]], y = "yhat")) +
+    p <- ggplot(object, aes(x = object[[1L]], y = object[["yhat"]])) +
       geom_line(...)
 
     # Add rug plot to x-axis
@@ -290,16 +319,17 @@ ggPlotOnePredictorPDP <- function(object, rug, smooth, smooth.method,
         x.rug <- data.frame(as.numeric(
           stats::quantile(train[, x.name, drop = TRUE], probs = 0:10/10,
                           na.rm = TRUE)))
-        p <- p + geom_rug(data = x.rug, aes_string(x = names(x.rug)[1L]),
-                          sides = "b", inherit.aes = FALSE)
+        p <- p + geom_rug(data = x.rug, aes(x = x.rug[[1L]]), sides = "b",
+                          inherit.aes = FALSE)
       }
     }
 
     # Add smoother
     if (smooth) {
-      p <- p + geom_smooth(method = smooth.method, formula = smooth.formula,
-                           span = smooth.span, se = FALSE,
-                           method.args = smooth.method.args)
+      p <- p + geom_smooth(
+        method = smooth.method, formula = smooth.formula, span = smooth.span,
+        se = FALSE, method.args = smooth.method.args
+      )
     }
 
   }
@@ -326,24 +356,24 @@ ggPlotOnePredictorPDP <- function(object, rug, smooth, smooth.method,
 
 
 #' @keywords internal
-ggPlotTwoPredictorPDP <- function(object, rug, smooth, smooth.method,
-                                  smooth.formula, smooth.span,
-                                  smooth.method.args, contour, contour.color,
-                                  palette, train, xlab, ylab, main,
-                                  legend.title, ...) {
+ggplot_two_predictor_pdp <- function(
+  object, rug, smooth, smooth.method, smooth.formula, smooth.span,
+  smooth.method.args, contour, contour.color, palette, train, xlab, ylab, main,
+  legend.title, ...
+) {
 
   # Use the first two columns to determine which type of plot to construct
   if (is.factor(object[[1L]]) && is.factor(object[[2L]])) {
 
     # Draw a faceted scatterplot
-    p <- ggplot(object, aes_string(x = names(object)[[1L]], y = "yhat")) +
+    p <- ggplot(object, aes(x = object[[1L]], y = object[["yhat"]])) +
       geom_point(...) +
       facet_wrap(~ object[[2L]])
 
   } else if (is.factor(object[[1L]]) && !is.factor(object[[2L]])) {
 
     # Draw a faceted lineplot
-    p <- ggplot(object, aes_string(x = names(object)[[2L]], y = "yhat")) +
+    p <- ggplot(object, aes(x = object[[2L]], y = object[["yhat"]])) +
       geom_line(...) +
       facet_wrap(~ object[[1L]])
 
@@ -356,22 +386,23 @@ ggPlotTwoPredictorPDP <- function(object, rug, smooth, smooth.method,
         x.rug <- data.frame(as.numeric(
           stats::quantile(train[, x.name, drop = TRUE], probs = 0:10/10,
                           na.rm = TRUE)))
-        p <- p + geom_rug(data = x.rug, aes_string(x = names(x.rug)[1L]),
-                          sides = "b", inherit.aes = FALSE)
+        p <- p + geom_rug(data = x.rug, aes(x = x.rug[[1L]]), sides = "b",
+                          inherit.aes = FALSE)
       }
     }
 
     # Add smoother
     if (smooth) {
-      p <- p + geom_smooth(method = smooth.method, formula = smooth.formula,
-                           span = smooth.span, se = FALSE,
-                           method.args = smooth.method.args)
+      p <- p + geom_smooth(
+        method = smooth.method, formula = smooth.formula, span = smooth.span,
+        se = FALSE, method.args = smooth.method.args
+      )
     }
 
   } else if (!is.factor(object[[1L]]) && is.factor(object[[2L]])) {
 
     # Draw a faceted lineplot
-    p <- ggplot(object, aes_string(x = names(object)[[1L]], y = "yhat")) +
+    p <- ggplot(object, aes(x = object[[1L]], y = object[["yhat"]])) +
       geom_line(...) +
       facet_wrap(~ object[[2L]])
 
@@ -384,25 +415,26 @@ ggPlotTwoPredictorPDP <- function(object, rug, smooth, smooth.method,
         x.rug <- data.frame(as.numeric(
           stats::quantile(train[, x.name, drop = TRUE], probs = 0:10/10,
                           na.rm = TRUE)))
-        p <- p + geom_rug(data = x.rug, aes_string(x = names(x.rug)[1L]),
-                          sides = "b", inherit.aes = FALSE)
+        p <- p + geom_rug(data = x.rug, aes(x = x.rug[[1L]]), sides = "b",
+                          inherit.aes = FALSE)
       }
     }
 
     # Add smoother
     if (smooth) {
-      p <- p + geom_smooth(method = smooth.method, formula = smooth.formula,
-                           span = smooth.span, se = FALSE,
-                           method.args = smooth.method.args)
+      p <- p + geom_smooth(
+        method = smooth.method, formula = smooth.formula, span = smooth.span,
+        se = FALSE, method.args = smooth.method.args
+      )
     }
 
   } else {
 
     # Draw a false color level plot
-    p <- ggplot(object, aes_string(x = names(object)[[1L]],
-                                   y = names(object)[[2L]],
-                                   z = "yhat",
-                                   fill = "yhat")) +
+    p <- ggplot(
+      object, aes(x = object[[1L]], y = object[[2L]],
+                  z = object[["yhat"]], fill = object[["yhat"]])
+    ) +
       geom_tile()
 
     # Add contour lines
@@ -411,15 +443,12 @@ ggPlotTwoPredictorPDP <- function(object, rug, smooth, smooth.method,
     }
 
     # Add legend title and theme
-    if (is.null(legend.title)) {
-      p <- p + scale_fill_distiller(name = "yhat", palette = palette)
-    } else {
-      p <- p + scale_fill_distiller(name = legend.title, palette = palette)
-    }
-    p <- p + theme_bw()
+    # palette <- match.arg(palette)
+    p <- p +
+      viridis::scale_fill_viridis(name = legend.title, option = palette, ...) +
+      theme_bw()
 
   }
-
 
   # Add axis labels and title
   if (is.null(xlab)) {

@@ -12,7 +12,10 @@ partial(object, ...)
   quantiles = FALSE, probs = 1:9/10, trim.outliers = FALSE,
   type = c("auto", "regression", "classification"), inv.link = NULL,
   which.class = 1L, prob = FALSE, recursive = TRUE, plot = FALSE,
-  smooth = FALSE, rug = FALSE, chull = FALSE, train, cats = NULL,
+  plot.engine = c("lattice", "ggplot2"), smooth = FALSE, rug = FALSE,
+  chull = FALSE, levelplot = TRUE, contour = FALSE,
+  contour.color = "white", palette = c("viridis", "magma", "inferno",
+  "plasma", "cividis"), alpha = 1, train, cats = NULL,
   check.class = TRUE, progress = "none", parallel = FALSE,
   paropts = NULL, ...)
 }
@@ -73,7 +76,7 @@ to extract the necessary information from \code{object}.}
 
 \item{inv.link}{Function specifying the transformation to be applied to the
 predictions before the partial dependence function is computed
-(experimental). Default is \code{NULL} (i.e., no transofrmation). This option
+(experimental). Default is \code{NULL} (i.e., no transformation). This option
 is intended to be used for models that allow for non-Gaussian response
 variables (e.g., counts). For these models, predictions are not typically
 returned on the original response scale by default. For example, Poisson GBMs
@@ -102,6 +105,10 @@ partial dependence values (\code{FALSE}) or plot the partial dependence
 function directly (\code{TRUE}). Default is \code{FALSE}. See
 \code{\link{plotPartial}} for plotting details.}
 
+\item{plot.engine}{Character string specifying which plotting engine to use
+whenever \code{plot = TRUE}. Options include \code{"lattice"} (default) or
+\code{"ggplot2"}.}
+
 \item{smooth}{Logical indicating whether or not to overlay a LOESS smooth.
 Default is \code{FALSE}.}
 
@@ -111,11 +118,29 @@ predictor distributions. This helps reduce the risk of interpreting the
 partial dependence plot outside the region of the data (i.e., extrapolating).
 Only used when \code{plot = TRUE}. Default is \code{FALSE}.}
 
-\item{chull}{Logical indicating wether or not to restrict the values of the
+\item{chull}{Logical indicating whether or not to restrict the values of the
 first two variables in \code{pred.var} to lie within the convex hull of their
 training values; this affects \code{pred.grid}. This helps reduce the risk of
 interpreting the partial dependence plot outside the region of the data
 (i.e., extrapolating).Default is \code{FALSE}.}
+
+\item{levelplot}{Logical indicating whether or not to use a false color level
+plot (\code{TRUE}) or a 3-D surface (\code{FALSE}). Default is \code{TRUE}.}
+
+\item{contour}{Logical indicating whether or not to add contour lines to the
+level plot. Only used when \code{levelplot = TRUE}. Default is \code{FALSE}.}
+
+\item{contour.color}{Character string specifying the color to use for the
+contour lines when \code{contour = TRUE}. Default is \code{"white"}.}
+
+\item{palette}{Character string indicating the colormap option to use. Five
+options are available: "viridis" (the default), "magma", "inferno", "plasma",
+and "cividis".}
+
+\item{alpha}{Numeric value in \code{[0, 1]} specifying the opacity alpha (
+most useful when plotting ICE/c-ICE curves). Default is 1 (i.e., no
+transparency). In fact, this option only affects ICE/c-ICE curves and level
+plots.}
 
 \item{train}{An optional data frame, matrix, or sparse matrix containing the
 original training data. This may be required depending on the class of

@@ -1,18 +1,18 @@
 #' @keywords internal
-superType <- function(object) {
-  UseMethod("superType")
+super_type <- function(object) {
+  UseMethod("super_type")
 }
 
 
 #' @keywords internal
-superType.default <- function(object) {
+super_type.default <- function(object) {
   warning('`type` could not be determined; assuming `type = "regression"`')
   "regression"
 }
 
 
 #' @keywords internal
-superType.BinaryTree <- function(object) {
+super_type.BinaryTree <- function(object) {
   if (object@responses@is_nominal) {
     "classification"
   } else if (object@responses@is_ordinal || object@responses@is_censored) {
@@ -24,30 +24,28 @@ superType.BinaryTree <- function(object) {
 
 
 #' @keywords internal
-superType.bagging <- function(object) {
+super_type.bagging <- function(object) {
   "classification"
 }
 
 
 #' @keywords internal
-superType.boosting <- function(object) {
+super_type.boosting <- function(object) {
   "classification"
 }
 
 
 #' @keywords internal
-superType.C5.0 <- function(object) {
+super_type.C5.0 <- function(object) {
   "classification"
 }
 
 
-superType.cforest <- function(object) {
-  if (attr(object$terms, "response") == 1 &&
-      attr(object$terms, "dataClasses")[1L] == "numeric") {
-    "regression"
-  } else if (attr(object$terms, "response") == 1 &&
-             attr(object$terms, "dataClasses")[1L] == "factor") {
+super_type.cforest <- function(object) {
+  if (is.factor(object$fitted[["(response)"]])) {
     "classification"
+  } else if (is.numeric(object$fitted[["(response)"]])) {
+    "regression"
   } else {
     "other"
   }
@@ -55,19 +53,19 @@ superType.cforest <- function(object) {
 
 
 #' @keywords internal
-superType.classbagg <- function(object) {
+super_type.classbagg <- function(object) {
   "classification"
 }
 
 
 #' @keywords internal
-superType.cubist <- function(object) {
+super_type.cubist <- function(object) {
   "regression"
 }
 
 
 #' @keywords internal
-superType.earth <- function(object) {
+super_type.earth <- function(object) {
   if (!is.null(object$glm.list) &&
       object$glm.list[[1L]]$family$family == "binomial") {
     "classification"
@@ -82,13 +80,13 @@ superType.earth <- function(object) {
 
 
 #' @keywords internal
-superType.fda<- function(object) {
+super_type.fda<- function(object) {
   "classification"
 }
 
 
 #' @keywords internal
-superType.gbm <- function(object) {
+super_type.gbm <- function(object) {
   if (object$distribution %in%
       c("gaussian", "laplace", "tdist", "gamma", "poisson", "tweedie")) {
     "regression"
@@ -102,7 +100,7 @@ superType.gbm <- function(object) {
 
 
 #' @keywords internal
-superType.glm <- function(object) {
+super_type.glm <- function(object) {
   if(object$family$family == "binomial") {
     "classification"
   } else if (object$family$family %in%
@@ -115,7 +113,7 @@ superType.glm <- function(object) {
 
 
 #' @keywords internal
-superType.ksvm <- function(object) {
+super_type.ksvm <- function(object) {
   if (grepl("svr$", object@type)) {
     "regression"
   } else if (grepl("svc$", object@type)) {
@@ -127,20 +125,20 @@ superType.ksvm <- function(object) {
 
 
 #' @keywords internal
-superType.lda<- function(object) {
+super_type.lda <- function(object) {
   "classification"
 }
 
 
 #' @keywords internal
-superType.lm <- function(object) {
+super_type.lm <- function(object) {
   # FIXME: What about multivariate response models?
   "regression"
 }
 
 
 #' @keywords internal
-superType.mars <- function(object) {
+super_type.mars <- function(object) {
   if (ncol(object$fitted.values) > 1) {
     stop("`partial` does not currently support multivariate response models.")
   }
@@ -149,20 +147,26 @@ superType.mars <- function(object) {
 
 
 #' @keywords internal
-superType.multinom <- function(object) {
+super_type.multinom <- function(object) {
   # FIXME: What about multivariate response models?
   "classification"
 }
 
 
 #' @keywords internal
-superType.nls <- function(object) {
+super_type.naiveBayes <- function(object) {
+  "classification"
+}
+
+
+#' @keywords internal
+super_type.nls <- function(object) {
   "regression"
 }
 
 
 #' @keywords internal
-superType.nnet <- function(object) {
+super_type.nnet <- function(object) {
   if (is.null(object$lev)) {
     "regression"
   } else {
@@ -171,13 +175,11 @@ superType.nnet <- function(object) {
 }
 
 
-superType.party <- function(object) {
-  if (attr(object$terms, "response") == 1 &&
-      attr(object$terms, "dataClasses")[1L] == "numeric") {
-    "regression"
-  } else if (attr(object$terms, "response") == 1 &&
-             attr(object$terms, "dataClasses")[1L] == "factor") {
+super_type.party <- function(object) {
+  if (is.factor(object$fitted[["(response)"]])) {
     "classification"
+  } else if (is.numeric(object$fitted[["(response)"]])) {
+    "regression"
   } else {
     "other"
   }
@@ -185,7 +187,7 @@ superType.party <- function(object) {
 
 
 #' @keywords internal
-superType.ppr <- function(object) {
+super_type.ppr <- function(object) {
   if (object$q > 1) {
     stop("`partial` does not currently support multivariate response models.")
   }
@@ -194,13 +196,13 @@ superType.ppr <- function(object) {
 
 
 #' @keywords internal
-superType.qda<- function(object) {
+super_type.qda<- function(object) {
   "classification"
 }
 
 
 #' @keywords internal
-superType.RandomForest <- function(object) {
+super_type.RandomForest <- function(object) {
   if (object@responses@is_nominal) {
     "classification"
   } else if (object@responses@is_ordinal || object@responses@is_censored) {
@@ -212,7 +214,7 @@ superType.RandomForest <- function(object) {
 
 
 #' @keywords internal
-superType.randomForest <- function(object) {
+super_type.randomForest <- function(object) {
   if (object$type == "regression") {
     "regression"
   } else if (object$type == "classification") {
@@ -224,7 +226,7 @@ superType.randomForest <- function(object) {
 
 
 #' @keywords internal
-superType.ranger <- function(object) {
+super_type.ranger <- function(object) {
   if (object$treetype == "Regression") {
     "regression"
   } else if (object$treetype %in%
@@ -237,13 +239,13 @@ superType.ranger <- function(object) {
 
 
 #' @keywords internal
-superType.regbagg <- function(object) {
+super_type.regbagg <- function(object) {
   "regression"
 }
 
 
 #' @keywords internal
-superType.rpart <- function(object) {
+super_type.rpart <- function(object) {
   if (object$method == "anova") {
     "regression"
   } else if (object$method == "class") {
@@ -255,7 +257,7 @@ superType.rpart <- function(object) {
 
 
 #' @keywords internal
-superType.svm <- function(object) {
+super_type.svm <- function(object) {
   if (object$type %in% c(3, 4)) {
     "regression"
   } else {
@@ -265,7 +267,7 @@ superType.svm <- function(object) {
 
 
 #' @keywords internal
-superType.train <- function(object) {
+super_type.train <- function(object) {
   if (object$modelType == "Classification") {
     "classification"
   } else if (object$modelType == "Regression") {
@@ -277,9 +279,9 @@ superType.train <- function(object) {
 
 
 #' @keywords internal
-superType.xgb.Booster <- function(object) {
+super_type.xgb.Booster <- function(object) {
   if (object$params$objective %in%
-      c("reg:linear", "count:poisson", "reg:gamma")) {
+      c("reg:linear", "reg:logistic", "count:poisson", "reg:gamma")) {
     "regression"
   } else if (object$params$objective %in%
              c("binary:logistic", "multi:softprob")) {
@@ -287,7 +289,7 @@ superType.xgb.Booster <- function(object) {
     # not return the predicted probabilities (e.g., "binary:logitraw").
     "classification"
   } else if (object$params$objective %in%
-             c("reg:logistic", "binary:logitraw", "multi:softmax")) {
+             c("binary:logitraw", "multi:softmax")) {
     stop(paste("For classification, switch to an objective function",
                "that returns the predicted probabilities."))
   } else {
