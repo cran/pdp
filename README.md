@@ -1,20 +1,17 @@
-pdp <img src="man/figures/pdp-logo.png" align="right" width="130" height="150" />
-=================================================================================
+# pdp <img src="man/figures/pdp-logo.png" align="right" width="130" height="150" />
 
-[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/pdp)](https://cran.r-project.org/package=pdp)
-[![Build
-Status](https://travis-ci.org/bgreenwell/pdp.svg?branch=master)](https://travis-ci.org/bgreenwell/pdp)
-[![AppVeyor Build
-Status](https://ci.appveyor.com/api/projects/status/github/bgreenwell/pdp?branch=master&svg=true)](https://ci.appveyor.com/project/bgreenwell/pdp)
-[![Coverage
-Status](https://img.shields.io/codecov/c/github/bgreenwell/pdp.svg)](https://codecov.io/github/bgreenwell/pdp?branch=master)
-[![Downloads](http://cranlogs.r-pkg.org/badges/pdp)](http://cranlogs.r-pkg.org/badges/pdp)
+<!-- badges: start -->
+
+[![CRAN
+status](https://www.r-pkg.org/badges/version/investr)](https://CRAN.R-project.org/package=investr)
+[![R-CMD-check](https://github.com/bgreenwell/pdp/workflows/R-CMD-check/badge.svg)](https://github.com/bgreenwell/pdp/actions)
+[![Codecov test
+coverage](https://codecov.io/gh/bgreenwell/pdp/branch/master/graph/badge.svg)](https://app.codecov.io/gh/bgreenwell/pdp?branch=master)
 [![Total
-Downloads](http://cranlogs.r-pkg.org/badges/grand-total/pdp)](http://cranlogs.r-pkg.org/badges/grand-total/pdp)
-[![lifecycle](https://img.shields.io/badge/lifecycle-maturing-brightgreen.svg)](https://www.tidyverse.org/lifecycle/#stable)
+Downloads](https://cranlogs.r-pkg.org/badges/grand-total/pdp)](https://cranlogs.r-pkg.org/badges/grand-total/pdp)
+<!-- badges: end -->
 
-Overview
---------
+## Overview
 
 [pdp](https://cran.r-project.org/package=pdp) is an R package for
 constructing ***p**artial **d**ependence **p**lots* (PDPs) and
@@ -38,7 +35,7 @@ bugs or issues, contact the main author directly or submit them to
 and examples, visit the [package
 website](https://bgreenwell.github.io/pdp/index.html).
 
-As of right now, `pdp` exports four functions:
+As of right now, `pdp` exports the following functions:
 
 -   `partial()` - compute partial dependence functions and individual
     conditional expectations (i.e., objects of class `"partial"` and
@@ -48,20 +45,24 @@ As of right now, `pdp` exports four functions:
 
 -   `autoplot()` - construct `ggplot2`-based PDPs and ICE curves;
 
--   `topPredictors()` extract most “important” predictors from various
-    types of fitted models. (Will soon be replaced by functionality from
-    [vip](https://koalaverse.github.io/vip/index.html).)
+-   ~~`topPredictors()` extract most “important” predictors from various
+    types of fitted models.~~ see
+    [vip](https://koalaverse.github.io/vip/index.html) instead for a
+    more robust and flexible replacement;
 
-Installation
-------------
+-   `exemplar()` - construct an exemplar record from a data frame
+    (**experimental** feature that may be useful for constructing fast,
+    approximate feature effect plots.)
+
+## Installation
 
 ``` r
 # The easiest way to get pdp is to install it from CRAN:
 install.packages("pdp")
 
 # Alternatively, you can install the development version from GitHub:
-if (!requireNamespace("devtools")) {
-  install.packages("devtools")
+if (!("remotes" %in% installed.packages()[, "Package"])) {
+  install.packages("remotes")
 }
-devtools::install_github("bgreenwell/pdp")
+remotes::install_github("bgreenwell/pdp")
 ```

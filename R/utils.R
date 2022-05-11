@@ -1,29 +1,3 @@
-#' Pipe operator
-#'
-#' See \code{\link[magrittr]{\%>\%}} for more details.
-#'
-#' @name %>%
-#' @rdname pipe
-#' @keywords internal
-#' @export
-#' @importFrom magrittr %>%
-#' @usage lhs \%>\% rhs
-NULL
-
-
-#' Arrange multiple grobs on a page
-#'
-#' See \code{\link[gridExtra]{grid.arrange}} for more details.
-#'
-#' @name grid.arrange
-#' @rdname grid.arrange
-#' @keywords internal
-#' @export
-#' @importFrom gridExtra grid.arrange
-#' @usage grid.arrange(..., newpage = TRUE)
-NULL
-
-
 #' Retrieve the last trellis object
 #'
 #' See \code{\link[lattice]{trellis.last.object}} for more details.
@@ -88,7 +62,7 @@ center_ice_curves.ice <- function(object) {
     "yhat.id" = object["yhat.id"]
   )
   names(res)[1L] <- names(object)[1L]
-  class(res) <- c("data.frame", "cice")
+  class(res) <- c("cice", "data.frame")
   res
 }
 
@@ -115,11 +89,11 @@ copy_classes <- function(x, y) {
       # Convert to factor or ordered class
       if (is.factor(y[[name]])) {
         if (is.ordered(y[[name]])) {
-          x[[name]] <- as.ordered(x[[name]])
+          x[[name]] <- ordered(x[[name]], levels = levels(y[[name]]))
         } else {
-          x[[name]] <- as.factor(x[[name]])
+          x[[name]] <- factor(x[[name]], levels = levels(y[[name]]))
         }
-        levels(x[[name]]) <- levels(y[[name]])
+        # levels(x[[name]]) <- levels(y[[name]])
         # if (!all(levels(y[[name]]) %in% x[[name]])) {
         #   stop("Factors levels ", paste0("{", paste(
         #     levels(y[[name]])[!(levels(y[[name]]) %in% x[[name]])],
@@ -160,20 +134,52 @@ multiclass_logit <- function(x, which.class = 1L) {
     rowMeans(log(ifelse(x > 0, x, eps)))
 }
 
+
 #' @keywords internal
 train_chull <- function(pred.var, pred.grid, train) {
   if (length(pred.var) >= 2 && is.numeric(pred.grid[, 1L]) &&
       is.numeric(pred.grid[, 2L])) {  # if the first two columns are numeric
     if (is.data.frame(train)) {
-      train <- data.matrix(train)  # mgcv::in.out requires a matrix
+      train <- data.matrix(train)  # `in.out()` requires a matrix
     }
     X <- stats::na.omit(train[, pred.var[1L:2L]])
     Y <- stats::na.omit(data.matrix(pred.grid[, 1L:2L]))
     hpts <- grDevices::chull(X)
     hpts <- c(hpts, hpts[1L])
-    keep <- mgcv::in.out(X[hpts, ], Y)
+    keep <- in.out(X[hpts, ], Y)
     pred.grid[keep, ]
   } else {
     pred.grid
   }
+}
+
+
+#' @keywords internal
+in.out <- function(bnd, x) {
+  #
+  # Taken from mgcv:::in.out
+  #
+  ## tests whether point defined by each row of x is inside
+  ## or outside boundary defined by bnd. bnd my be made up of multiple
+  ## nested loops.
+  if (!is.matrix(x)) x <- matrix(x, 1, 2)
+  if (is.list(bnd)) { ## convert list of lists to matrix form
+    b1 <- bnd[[1]][[1]]
+    b2 <- bnd[[1]][[2]]
+    if (length(bnd) > 1) for (i in 2:length(bnd)) {
+      b1 <- c(b1, NA, bnd[[i]][[1]])
+      b2 <- c(b2, NA, bnd[[i]][[2]])
+    }
+    bnd <- cbind(b1,b2)
+  }
+  ## replace NA segment separators with a numeric code
+  lowLim <- min(bnd, na.rm = TRUE) - mean(abs(bnd), na.rm = TRUE)
+  ind <- is.na(rowSums(bnd))
+  bnd[ind, ] <- lowLim
+  n <- nrow(bnd)
+  um <- .C(in_out, bx = as.double(bnd[, 1]), by = as.double(bnd[, 2]),
+           break.code = as.double(lowLim), x = as.double(x[, 1]),
+           y = as.double(x[, 2]), inside = as.integer(x[, 2] * 0),
+           nb = as.integer(n), n = as.integer(nrow(x)))
+  as.logical(um$inside)
 }

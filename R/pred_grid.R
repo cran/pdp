@@ -6,10 +6,9 @@ trim_outliers <- function(x) {
 
 
 #' @keywords internal
-pred_grid <- function(
-  train, pred.var, grid.resolution = NULL, quantiles = FALSE, probs = 1:9/10,
-  trim.outliers = FALSE, cats = NULL
-) {
+pred_grid <- function(train, pred.var, grid.resolution = NULL,
+                      quantiles = FALSE, probs = 1:9/10, trim.outliers = FALSE,
+                      cats = NULL) {
 
   # train must inherit from one "data.frame", "matrix", or "dgCMatrix"
   if (!inherits(train, c("data.frame", "matrix", "dgCMatrix"))) {
@@ -18,11 +17,12 @@ pred_grid <- function(
   }
 
   # Create a list containing the values of interest for each of the predictor
-  # variables listed in pred.var
+  # variables listed in `pred.var`
   pred.val <- lapply(pred.var, function(x) {
     if (is.factor(train[, x, drop = TRUE])) {
       levels(train[, x, drop = TRUE])
-    } else if (x %in% cats) {
+    } else if (inherits(train[, x, drop = TRUE], what = "character") ||
+               (x %in% cats)) {
       sort(unique(train[, x, drop = TRUE]))  # martices cannot contain factors
     } else {
       if (!is.null(grid.resolution) && quantiles) {

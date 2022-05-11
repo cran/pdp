@@ -6,21 +6,57 @@
 \alias{autoplot.cice}
 \title{Plotting Partial Dependence Functions}
 \usage{
-\method{autoplot}{partial}(object, center = FALSE, plot.pdp = TRUE,
-  pdp.color = "red", pdp.size = 1, pdp.linetype = 1, rug = FALSE,
-  smooth = FALSE, smooth.method = "auto", smooth.formula = y ~ x,
-  smooth.span = 0.75, smooth.method.args = list(), contour = FALSE,
-  contour.color = "white", palette = c("viridis", "magma", "inferno",
-  "plasma", "cividis"), train = NULL, xlab = NULL, ylab = NULL,
-  main = NULL, legend.title = "yhat", ...)
+\method{autoplot}{partial}(
+  object,
+  center = FALSE,
+  plot.pdp = TRUE,
+  pdp.color = "red",
+  pdp.size = 1,
+  pdp.linetype = 1,
+  rug = FALSE,
+  smooth = FALSE,
+  smooth.method = "auto",
+  smooth.formula = y ~ x,
+  smooth.span = 0.75,
+  smooth.method.args = list(),
+  contour = FALSE,
+  contour.color = "white",
+  train = NULL,
+  xlab = NULL,
+  ylab = NULL,
+  main = NULL,
+  legend.title = "yhat",
+  ...
+)
 
-\method{autoplot}{ice}(object, center = FALSE, plot.pdp = TRUE,
-  pdp.color = "red", pdp.size = 1, pdp.linetype = 1, rug = FALSE,
-  train = NULL, xlab = NULL, ylab = NULL, main = NULL, ...)
+\method{autoplot}{ice}(
+  object,
+  center = FALSE,
+  plot.pdp = TRUE,
+  pdp.color = "red",
+  pdp.size = 1,
+  pdp.linetype = 1,
+  rug = FALSE,
+  train = NULL,
+  xlab = NULL,
+  ylab = NULL,
+  main = NULL,
+  ...
+)
 
-\method{autoplot}{cice}(object, plot.pdp = TRUE, pdp.color = "red",
-  pdp.size = 1, pdp.linetype = 1, rug = FALSE, train = NULL,
-  xlab = NULL, ylab = NULL, main = NULL, ...)
+\method{autoplot}{cice}(
+  object,
+  plot.pdp = TRUE,
+  pdp.color = "red",
+  pdp.size = 1,
+  pdp.linetype = 1,
+  rug = FALSE,
+  train = NULL,
+  xlab = NULL,
+  ylab = NULL,
+  main = NULL,
+  ...
+)
 }
 \arguments{
 \item{object}{An object that inherits from the \code{"partial"} class.}
@@ -68,10 +104,6 @@ level plot.}
 \item{contour.color}{Character string specifying the color to use for the
 contour lines when \code{contour = TRUE}. Default is \code{"white"}.}
 
-\item{palette}{Character string indicating the colormap option to use. Five
-options are available: "viridis" (the default), "magma", "inferno", "plasma",
-and "cividis".}
-
 \item{train}{Data frame containing the original training data. Only required
 if \code{rug = TRUE} or \code{chull = TRUE}.}
 
@@ -85,7 +117,9 @@ plot.}
 \item{legend.title}{Character string specifying the text for the legend title.
 Default is \code{"yhat"}.}
 
-\item{...}{Additional optional arguments to be passed onto \code{geom_line}.}
+\item{...}{Additional (optional) arguments to be passed onto
+\code{\link[ggplot2]{geom_line}}, \code{\link[ggplot2]{geom_point}}, or
+\code{\link[ggplot2]{scale_fill_viridis_c}}.}
 }
 \value{
 A \code{"ggplot"} object.
@@ -101,7 +135,9 @@ Plots partial dependence functions (i.e., marginal effects) using
 #
 
 # Load required packages
-library(ggplot2)  # required to use autoplot
+library(ggplot2)  # for autoplot() generic
+library(gridExtra)  # for `grid.arrange()`
+library(magrittr)  # for forward pipe operator `\%>\%`
 library(randomForest)
 
 # Fit a random forest to the Boston housing data
@@ -112,18 +148,19 @@ boston.rf <- randomForest(cmedv ~ ., data = boston)
 # Partial dependence of cmedv on lstat
 boston.rf \%>\%
   partial(pred.var = "lstat") \%>\%
-  autoplot(rug = TRUE, train = boston)
+  autoplot(rug = TRUE, train = boston) + theme_bw()
 
 # Partial dependence of cmedv on lstat and rm
 boston.rf \%>\%
   partial(pred.var = c("lstat", "rm"), chull = TRUE, progress = "text") \%>\%
-  autoplot(contour = TRUE, legend.title = "rm")
+  autoplot(contour = TRUE, legend.title = "cmedv",
+           option = "B", direction = -1) + theme_bw()
 
 # ICE curves and c-ICE curves
 age.ice <- partial(boston.rf, pred.var = "lstat", ice = TRUE)
 grid.arrange(
-  autoplot(age.ice, alpha = 0.5),                 # ICE curves
-  autoplot(age.ice, center = TRUE, alpha = 0.5),  # c-ICE curves
+  autoplot(age.ice, alpha = 0.1),                 # ICE curves
+  autoplot(age.ice, center = TRUE, alpha = 0.1),  # c-ICE curves
   ncol = 2
 )
 }

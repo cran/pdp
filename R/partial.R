@@ -1,3 +1,5 @@
+# FIXME: partial() returns character columns for factors.
+
 #' Partial Dependence Functions
 #'
 #' Compute partial dependence functions (i.e., marginal effects) for various
@@ -31,6 +33,18 @@
 #' @param center Logical indicating whether or not to produce centered ICE
 #' curves (c-ICE curves). Only used when \code{ice = TRUE}. Default is
 #' \code{FALSE}. See Goldstein et al. (2014) for details.
+#'
+#' @param approx Logical indicating whether or not to compute a faster, but
+#' approximate, marginal effect plot (similar in spirit to
+#' \code{\link[plotmo]{plotmo}}). If \code{TRUE}, then `partial()` will compute
+#' predictions across the predictors specified in \code{pred.var} while holding
+#' the other predictors constant (a "poor man's partial dependence" function as
+#' Stephen Milborrow, the author of \code{\link[plotmo]{plotmo}}, puts it).
+#' Default is \code{FALSE}. Note this works with \code{ice = TRUE} as well.
+#' WARNING: This option is currently experimental. Use at your own risk. It is
+#' possible (and arguably safer) to do this manually by passing a specific
+#' "exemplar" observation to the train argument and specifying `pred.grid`
+#' manually.
 #'
 #' @param quantiles Logical indicating whether or not to use the sample
 #' quantiles of the continuous predictors listed in \code{pred.var}. If
@@ -106,10 +120,6 @@
 #'
 #' @param contour.color Character string specifying the color to use for the
 #' contour lines when \code{contour = TRUE}. Default is \code{"white"}.
-#'
-#' @param palette Character string indicating the colormap option to use. Five
-#' options are available: "viridis" (the default), "magma", "inferno", "plasma",
-#' and "cividis".
 #'
 #' @param alpha Numeric value in \code{[0, 1]} specifying the opacity alpha (
 #' most useful when plotting ICE/c-ICE curves). Default is 1 (i.e., no
@@ -270,15 +280,14 @@ partial <- function(object, ...) {
 #' @export
 partial.default <- function(
   object, pred.var, pred.grid, pred.fun = NULL, grid.resolution = NULL,
-  ice = FALSE, center = FALSE, quantiles = FALSE, probs = 1:9/10,
+  ice = FALSE, center = FALSE, approx = FALSE, quantiles = FALSE, probs = 1:9/10,
   trim.outliers = FALSE, type = c("auto", "regression", "classification"),
   inv.link = NULL, which.class = 1L, prob = FALSE, recursive = TRUE,
   plot = FALSE, plot.engine = c("lattice", "ggplot2"),
   smooth = FALSE, rug = FALSE, chull = FALSE, levelplot = TRUE,
   contour = FALSE, contour.color = "white",
-  palette = c("viridis", "magma", "inferno", "plasma", "cividis"), alpha = 1,
-  train, cats = NULL, check.class = TRUE, progress = "none", parallel = FALSE,
-  paropts = NULL, ...
+  alpha = 1, train, cats = NULL, check.class = TRUE, progress = "none",
+  parallel = FALSE, paropts = NULL, ...
 ) {
 
   # Check prediction function if given
@@ -332,7 +341,8 @@ partial.default <- function(
   pred.grid <- if (missing(pred.grid)) {
     pred_grid(
       train = train, pred.var = pred.var, grid.resolution = grid.resolution,
-      quantiles = quantiles, probs = probs, trim.outliers = trim.outliers
+      quantiles = quantiles, probs = probs, trim.outliers = trim.outliers,
+      cats = cats
     )
   } else {
     if (!is.data.frame(pred.grid)) {
@@ -374,13 +384,18 @@ partial.default <- function(
   # Determine the type of supervised learning used
   type <- match.arg(type)
   if (type == "auto" && is.null(pred.fun)) {
-    type <- super_type(object)  # determine if regression or classification
+    type <- get_task(object)  # determine if regression or classification
   }
 
   # Display warning for GBM objects when recursive = TRUE and ice = TRUE
   if (inherits(object, "gbm") && recursive && ice) {
     warning("Recursive method not available for \"gbm\" objects when `ice = ",
             "TRUE`. Using brute force method instead.")
+  }
+
+  # Compute "poor man's partial dependence"
+  if (isTRUE(approx)) {       # FIXME: What about when `rug/chull = TRUE`
+    train <- exemplar(train)  # FIXME: Better handling for matrix-like objects
   }
 
   # Calculate partial dependence values
@@ -394,76 +409,62 @@ partial.default <- function(
     # Stop and notify user that pred.fun cannot be used when recursive = TRUE
     # with "gbm" objects
     if (!is.null(pred.fun)) {
-      stop("Option `pred.fun` cannot currently be used when `recursive = TRUE`.")
+      stop("Option `pred.fun` cannot currently be used when ",
+           "`recursive = TRUE`.")
     }
 
     # Notify user that progress bars are not avaiable for "gbm" objects when
     # recursive = TRUE
     if (progress != "none") {
-      message("Progress bars are not availble when `recursive = TRUE`.")
+      message("progress bars are not availble when `recursive = TRUE`.",
+              call. = FALSE)
     }
 
     # Stop and notify user that parallel functionality is currently not
     # available for "gbm" objects when recursive = TRUE
     if (parallel) {
-      stop("Option `parallel` cannot currently be used when `recursive = TRUE`.")
+      stop("parallel processing cannot be used when `recursive = TRUE`.",
+           call. = FALSE)
     }
 
     # Use Friedman's weighted tree traversal approach
-    pd.df <- getParDepGBM(object, pred.var = pred.var, pred.grid = pred.grid,
-                          which.class = which.class, prob = prob, ...)
-    class(pd.df) <- c("data.frame", "partial")  # assign class labels
+    pd.df <- pardep_gbm(object, pred.var = pred.var, pred.grid = pred.grid,
+                        which.class = which.class, prob = prob, ...)
+    class(pd.df) <- c("partial", "data.frame")  # assign class labels
     names(pd.df) <- c(pred.var, "yhat")  # rename columns
     rownames(pd.df) <- NULL  # remove row names
 
   } else {
 
     # Use brute force approach
-    pd.df <- if (!is.null(pred.fun)) {  # user-supplied prediction function
-      getParDepMan(object, pred.var = pred.var, pred.grid = pred.grid,
-                   pred.fun = pred.fun, train = train, progress = progress,
-                   parallel = parallel, paropts = paropts, ...)
-    } else if (type == "regression") {
-      getParDepReg(object, pred.var = pred.var, pred.grid = pred.grid,
-                   inv.link = inv.link, ice = ice, train = train,
-                   progress = progress, parallel = parallel,
-                   paropts = paropts, ...)
-    } else if (type == "classification") {
-      getParDepCls(object, pred.var = pred.var, pred.grid = pred.grid,
-                   which.class = which.class, prob = prob, ice = ice,
-                   train = train, progress = progress, parallel = parallel,
-                   paropts = paropts, ...)
+    pd.df <- if (type %in% c("regression", "classification") ||
+                 !is.null(pred.fun)) {
+      pardep(object, pred.var = pred.var, pred.grid = pred.grid,
+             pred.fun = pred.fun, inv.link = inv.link, ice = ice, task = type,
+             which.class = which.class, logit = !prob, train = train,
+             progress = progress, parallel = parallel, paropts = paropts, ...)
     } else {
-      stop(paste("Partial dependence values are currently only available",
-                 "for classification and regression problems."))
+      stop("partial dependence and ICE are currently only available for ",
+           "classification and regression problems.", call. = FALSE)
     }
 
-    # When train inherits from class "matrix" or "dgCMatrix", pd.df will only
-    # contain yhat (and possibly yhat.id); hence, pred.grid must be prepended.
-    if (!(all(pred.var %in% colnames(pd.df)))) {
-      pd.df <- if (inherits(pred.grid, "dgCMatrix")) {
-        cbind(as.matrix(pred.grid), pd.df)
-      } else {
-        cbind(pred.grid, pd.df)
-      }
+    # Coerce to a data frame, if needed, and apply finishing touches
+    if (is.matrix(pd.df)) {
+      pd.df <- as.data.frame(pd.df)
     }
-
-    # Construct a "tidy" data frame from the results
-    if (ice || any(grepl("^yhat\\.", names(pd.df)))) {  # multiple curves
-
-      # Convert from wide to long format
-      pd.df <- stats::reshape(
-        pd.df, varying = (length(pred.var) + 1):ncol(pd.df), direction = "long"
-      )
-      pd.df$id <- NULL  # remove id column
-      pd.df <- pd.df[, c(pred.var, "yhat", "time")]  # rearrange columns
-      names(pd.df)[ncol(pd.df)] <- "yhat.id"  # rename "time" column
+    if (inherits(pd.df, what = "dgCMatrix")) {  # xgboost
+      pd.df <- as.data.frame(as.matrix(pd.df))
+    }
+    if (isTRUE(ice) || ("yhat.id" %in% names(pd.df))) {  # multiple curves
 
       # Assign class labels
-      class(pd.df) <- c("data.frame", "ice")
+      class(pd.df) <- c("ice", "data.frame")
+
+      # Make sure data are ordered by `yhat.id`
+      pd.df <- pd.df[order(pd.df$yhat.id), ]
 
       # c-ICE curves
-      if (center) {
+      if (isTRUE(center)) {
         pd.df <- center_ice_curves(pd.df)
         if (type == "classification" && prob) {
           warning("Centering may result in probabilities outside of [0, 1].")
@@ -472,8 +473,7 @@ partial.default <- function(
       }
 
     } else {  # single curve
-      names(pd.df) <- c(pred.var, "yhat")  # rename columns
-      class(pd.df) <- c("data.frame", "partial")  # assign class labels
+      class(pd.df) <- c("partial", "data.frame")  # assign class labels
     }
     rownames(pd.df) <- NULL  # remove row names
 
@@ -482,7 +482,7 @@ partial.default <- function(
   # Plot partial dependence function (if requested)
   if (plot) {  # return a graph (i.e., a "trellis" or "ggplot" object)
     plot.engine <- match.arg(plot.engine)
-    res <- if (inherits(pd.df, what = "ice")) {
+    res <- if (inherits(pd.df, what = c("ice", "cice"))) {
       if (plot.engine == "ggplot2") {
         autoplot(
           object = pd.df, plot.pdp = TRUE, rug = rug, train = train,
@@ -495,21 +495,15 @@ partial.default <- function(
         )
       }
     } else {
-      # palette = match.arg(palette)
       if (plot.engine == "ggplot2") {
-        autoplot(
-          object = pd.df, smooth = smooth, rug = rug, train = train,
-          contour = contour, contour.color = contour.color, palette = palette,
-          alpha = alpha
-        )
+        autoplot(pd.df, smooth = smooth, rug = rug, train = train,
+                 contour = contour, contour.color = contour.color,
+                 alpha = alpha)
       } else {
-        plotPartial(
-          object = pd.df, smooth = smooth, rug = rug, train = train,
-          levelplot = levelplot, contour = contour,
-          contour.color = contour.color,
-          screen = list(z = -30, x = -60),  # sensible default?
-          palette = palette, alpha = alpha
-        )
+        plotPartial(pd.df, smooth = smooth, rug = rug, train = train,
+                    levelplot = levelplot, contour = contour,
+                    contour.color = contour.color,
+                    screen = list(z = -30, x = -60))  # sensible default?
       }
     }
     attr(res, "partial.data") <- pd.df  # attach PDP data as an attribute
@@ -520,4 +514,12 @@ partial.default <- function(
   # Return results
   res
 
+}
+
+
+#' @rdname partial
+#'
+#' @export
+partial.model_fit <- function(object, ...) {
+  partial.default(object$fit, ...)
 }

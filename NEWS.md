@@ -1,3 +1,60 @@
+# pdp 0.8.0
+
+## New features
+
+* New (experimental) function `exemplar()` for constructing an "exemplar" record from a data frame or matrix-like object. See `?pdp::exemplar` for details [(#91)](https://github.com/bgreenwell/pdp/issues/91).
+
+* `partial()` gained a new (experimental) feature via the new `approx` argument. If `approx = TRUE`, then `partial()` will compute predictions across the predictors specified in `pred.var` while holding the other predictors constant (a "poor man's partial dependence" function as Stephen Milborrow, the author of [plotmo](https://cran.r-project.org/package=plotmo), puts it). See `?pdp::partial` for details.
+
+## Breaking changes
+
+* Bumped the R dependency to R (>= 3.6.0) to support the use of `grDevices::hcl.colors()` in `plotPartial()`.
+
+* Function `grid.arrange()` and the forward pipe operator `%>%` are no longer automatically imported from packages [gridExtra](https://cran.r-project.org/package=gridExtra) and [magrittr](https://cran.r-project.org/package=magrittr), respectively; users are encouraged to load them manually if needed.
+
+* Removed the `palette` and `alpha` arguments from `plotPartial()` and `autoplot()`; the latter just got absorbed into the `...` argument. By default, `plotPartial()`'s `col.regions` argument now corresponds to `grDevices::hcl.colors(100)`, which defaults to the same viridis color palette as before, just without the dependency.
+
+* `topPredictors()` is now deprecated and will be removed in the next update. Users are advised to use the [vip](https://github.com/koalaverse/vip) package instead.
+
+## Minor changes
+
+* Added support for gradient boosted Cox proportional hazards models in [gbm](https://cran.r-project.org/package=gbm).
+
+* Removed dependency on the retired [plyr](https://cran.r-project.org/package=plyr) package by relying directly on the [foreach](https://cran.r-project.org/package=foreach) package. Consequently, ICE curves (`ice = TRUE`) are now slightly faster to compute (since the code refactoring avoids having to post-process ICE data from wide to long format) and the corresponding progress bar (`progress = "text"`) is more honest.
+
+  * As a further consequence, the `partial()` function only supports a simple text-based progress bar (`progress = "text"`), but more options will possibly be added later.
+
+* Removed dependency on [viridis](https://cran.r-project.org/package=viridis); consequently, to keep the 'viridis' color palettes in `autoplot()`, this required bumping the [ggplot2](https://cran.r-project.org/package=ggplot2) dependency to version 3.0.0, as well as some other code tweaks under the hood [(#106)](https://github.com/bgreenwell/pdp/issues/106). 
+
+* Removed dependency on [mgcv](https://cran.r-project.org/package=mgcv) by switching to an internal C implementation of [mgcv](https://cran.r-project.org/package=mgcv)'s `in.out()` function [(#107)](https://github.com/bgreenwell/pdp/issues/107). (This is used behind the scenes whenever `partial()` is called with `chull = TRUE`.)
+
+* `"partial"` is now a proper subclass of `"data.frame"` [(#104)](https://github.com/bgreenwell/pdp/issues/104); thanks to @RoelVerbelen for pointing this out.
+
+* Fixed a bug where `rug = TRUE` would not work properly for **xgboost** models whenever calling `partial()` with `plot = TRUE`.
+
+* Fixed a bug in `partial()` where the `cats` argument was never actually passed to `pred_grid()` [(#86)](https://github.com/bgreenwell/pdp/issues/86).
+
+* Fixed a bug in `partial()` for `"gbm"` objects when `recursive = TRUE` that caused factors (including ordered factors) to be coerced to characters. 
+
+## Miscellaneous
+
+* Switched from Travis-CI to GitHub Actions for continuous integration.
+
+* Added [ICEbox](https://cran.r-project.org/package=ICEbox) and [mlbench](https://cran.r-project.org/package=mlbench) to the list of suggested packages.
+
+* Refactored code for easier maintenance.
+
+* Switched to **tinytest** framework and increased test coverage [(#84)](https://github.com/bgreenwell/pdp/issues/84).
+
+* The internal function `get_training_data()`, which is used to (attempt to) extract a fitted model's training data whenever `train` is not specified, is (hopefully) a bit more flexible and robust in certain special cases[(#90)](https://github.com/bgreenwell/pdp/issues/90).
+
+* Minor bug fixes in plotting functions (i.e., `autoplot()` and `plotPartial()`). 
+
+* Training data that inherits from class `"tibble"` is still not officially supported, but shouldn't cause as many errors from this point on.
+
+* Using `autoplot()` with a factor followed by numeric in `pred.var` no longer seems to be an issue [(#79)](https://github.com/bgreenwell/pdp/issues/79).
+
+
 # pdp 0.7.0
 
 * Added support for `e1071::naiveBayes()`, an implementation of the standard naive Bayes classifier [(#42)](https://github.com/bgreenwell/pdp/issues/42).
