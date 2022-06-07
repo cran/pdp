@@ -1,7 +1,7 @@
 Package: pdp
 Type: Package
 Title: Partial Dependence Plots
-Version: 0.8.0
+Version: 0.8.1
 Authors@R: person(c("Brandon", "M."), family = "Greenwell", 
     email = "greenwell.brandon@gmail.com", role = c("aut", "cre"), 
     comment = c(ORCID = "0000-0002-8120-0084"))
@@ -25,9 +25,9 @@ RoxygenNote: 7.1.2
 Encoding: UTF-8
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2022-05-11 14:16:57 UTC; bgreenwell
+Packaged: 2022-06-07 16:30:46 UTC; bgreenwell
 Author: Brandon M. Greenwell [aut, cre]
     (<https://orcid.org/0000-0002-8120-0084>)
 Maintainer: Brandon M. Greenwell <greenwell.brandon@gmail.com>
 Repository: CRAN
-Date/Publication: 2022-05-11 23:20:06 UTC
+Date/Publication: 2022-06-07 20:40:05 UTC

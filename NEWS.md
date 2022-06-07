@@ -1,3 +1,18 @@
+# pdp 0.8.1
+
+## Bug fixes
+
+* Fixed an ICE plot issue for XGBoost models caused by the switch to [foreach](https://cran.r-project.org/package=foreach) package.
+
+## Minor changes
+
+* Fixed a couple of URLs in the package documentation.
+
+## Breaking changes
+
+* `partial()`'s progress argument now only accepts a logical and defaults to `FALSE`.
+
+
 # pdp 0.8.0
 
 ## New features
