@@ -1,3 +1,7 @@
+if (!at_home()) {
+  exit_file("Skipping tests that run only at home.")
+}
+
 # Load required packages
 library(Matrix)
 
@@ -17,17 +21,13 @@ if (require(xgboost, quietly = TRUE)) {
 
   # Fit regression model
   fit1 <- xgboost(
-    data = X1,
-    label = friedman1$y,
-    params = list(
-      max_depth = 2,
-      eta = 0.1,
-      objective = "reg:squarederror",  # formerly "reg:linear"
-      eval_metric = "rmse"
-    ),
-    nrounds = 827,
-    verbose = 0,
-    save_period = NULL
+    x = X1,
+    y = friedman1$y,
+    max_depth = 2,
+    learning_rate = 0.1,
+    objective = "reg:squarederror",  # formerly "reg:linear"
+    eval_metric = "rmse",
+    nrounds = 827
   )
 
   # Compute partial dependence, ICE, etc. for x.3
@@ -53,13 +53,11 @@ if (require(xgboost, quietly = TRUE)) {
   # Fit Poisson regression model for number of carburetors in the mtcars data
   # set (here, the response is a count)
   fit2 <- xgboost(
-    data = data.matrix(mtcars[, -11L]),
-    label = mtcars[, 11],
+    x = data.matrix(mtcars[, -11L]),
+    y = mtcars[, 11],
     objective = "count:poisson",
-    eta = 0.1,
-    nrounds = 273,
-    verbose = 0,
-    save_period = NULL
+    learning_rate = 0.1,
+    nrounds = 273
   )
 
   # FIXME: `predict.xgb.Booster()` now returns predictions on the original
@@ -89,17 +87,13 @@ if (require(xgboost, quietly = TRUE)) {
 
   # Fit classification model
   fit3 <- xgboost(
-    data = X2,
-    label = ifelse(friedman2$y == "class1", 1, 0),
-    params = list(
-      max_depth = 25,
-      eta = 0.1,
-      objective = "binary:logistic",
-      eval_metric = "auc"
-    ),
-    nrounds = 200,
-    verbose = 0,
-    save_period = NULL
+    x = X2,
+    y = friedman2$y,
+    max_depth = 25,
+    learning_rate = 0.1,
+    objective = "binary:logistic",
+    eval_metric = "auc",
+    nrounds = 200
   )
 
   # Compute partial dependence, ICE, etc. for x.3

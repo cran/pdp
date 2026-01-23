@@ -1,3 +1,10 @@
+# pdp 0.8.3
+
+## Fixed
+
+* Fixed failing tests due to changes in the `xgboost` package.
+
+
 # pdp 0.8.2
 
 ## Minor changes

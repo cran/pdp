@@ -239,7 +239,7 @@ ggplot_ice_curves <- function(
     # Should the PDP be displayed too?
     if (plot.pdp) {
       p <- p + stat_summary(
-        fun = mean, geom = "line", col = pdp.color, size = pdp.size,
+        fun = mean, geom = "line", col = pdp.color, linewidth = pdp.size,
         linetype = pdp.linetype
       )
     }
@@ -253,7 +253,7 @@ ggplot_ice_curves <- function(
     # Should the PDP be displayed too?
     if (plot.pdp) {
       p <- p + stat_summary(
-        fun = mean, geom = "line", col = pdp.color, size = pdp.size,
+        fun = mean, geom = "line", col = pdp.color, linewidth = pdp.size,
         linetype = pdp.linetype
       )
     }

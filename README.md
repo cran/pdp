@@ -28,7 +28,7 @@ comprehensive, overview of IML can be found at the following URL:
 A detailed introduction to [pdp](https://cran.r-project.org/package=pdp)
 has been published in The R Journal: “pdp: An R Package for Constructing
 Partial Dependence Plots”,
-<https://journal.r-project.org/archive/2017/RJ-2017-016/index.html>. You
+<https://journal.r-project.org/articles/RJ-2017-016/index.html>. You
 can track development at <https://github.com/bgreenwell/pdp>. To report
 bugs or issues, contact the main author directly or submit them to
 <https://github.com/bgreenwell/pdp/issues>. For additional documentation

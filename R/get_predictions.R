@@ -324,7 +324,7 @@ get_probs.glm <- function(object, newdata, which.class, logit, ...) {
 # Regression
 
 #' @keywords internal
-get_predictions.xgb.Booster <- function(object, newdata, inv.link, ...) {
+get_predictions.xgboost <- function(object, newdata, inv.link, ...) {
   pred <- stats::predict(object, newdata = newdata, ...)
   if (is.null(inv.link)) {
     pred
@@ -336,9 +336,10 @@ get_predictions.xgb.Booster <- function(object, newdata, inv.link, ...) {
 # Classification
 
 #' @keywords internal
-get_probs.xgb.Booster <- function(object, newdata, which.class, logit, ...) {
-  pr <- stats::predict(object, newdata = newdata, reshape = TRUE, ...)
-  if (object$params$objective == "binary:logistic") {
+get_probs.xgboost <- function(object, newdata, which.class, logit, ...) {
+  pr <- stats::predict(object, newdata = newdata, type = "response", ...)
+  obj <- attr(object, "params")$objective
+  if (obj == "binary:logistic") {
     pr <- cbind(pr, 1 - pr)
   }
   if (isTRUE(logit)) {

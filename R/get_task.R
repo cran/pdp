@@ -290,18 +290,16 @@ get_task.train <- function(object) {
 
 
 #' @keywords internal
-get_task.xgb.Booster <- function(object) {
+get_task.xgboost <- function(object) {
   # FIXME: "reg:linear" was changed to "reg:squarederror" in v0.90.0, but the
   # following should suffice without having to check package version.
-  if (object$params$objective %in%
-      c("reg:gamma", "reg:linear", "reg:logistic", "reg:squarederror",
-        "reg:squaredlogerror", "count:poisson")) {
+  obj <- attr(object, which = "params")$objective
+  if (obj %in% c("reg:gamma", "reg:linear", "reg:logistic", "reg:squarederror",
+                 "reg:squaredlogerror", "count:poisson")) {
     "regression"
-  } else if (object$params$objective %in%
-             c("binary:logistic", "multi:softprob")) {
+  } else if (obj %in% c("binary:logistic", "multi:softprob")) {
     "classification"
-  } else if (object$params$objective %in%
-             c("binary:logitraw", "multi:softmax")) {
+  } else if (obj %in% c("binary:logitraw", "multi:softmax")) {
     stop(paste("For classification, switch to an objective function",
                "that returns the predicted probabilities."))
   } else {
