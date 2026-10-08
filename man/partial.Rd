@@ -26,7 +26,7 @@ partial(object, ...)
   prob = FALSE,
   recursive = TRUE,
   plot = FALSE,
-  plot.engine = c("lattice", "ggplot2"),
+  plot.engine = c("tinyplot", "lattice"),
   smooth = FALSE,
   rug = FALSE,
   chull = FALSE,
@@ -37,9 +37,11 @@ partial(object, ...)
   train,
   cats = NULL,
   check.class = TRUE,
+  batch.size = NULL,
   progress = FALSE,
   parallel = FALSE,
   paropts = NULL,
+  frac = 1,
   ...
 )
 
@@ -50,11 +52,12 @@ partial(object, ...)
 \code{"lm"}, \code{"randomForest"}, \code{"train"}, etc.).}
 
 \item{...}{Additional optional arguments to be passed onto
-\code{\link[stats]{predict}}.}
+\code{\link[stats:predict]{stats::predict()}}.}
 
 \item{pred.var}{Character string giving the names of the predictor variables
 of interest. For reasons of computation/interpretation, this should include
-no more than three variables.}
+no more than three variables. Can be omitted whenever \code{pred.grid} is
+supplied, in which case it defaults to \code{colnames(pred.grid)}.}
 
 \item{pred.grid}{Data frame containing the joint values of interest for the
 variables listed in \code{pred.var}.}
@@ -96,7 +99,7 @@ quantiles of the continuous predictors listed in \code{pred.var}. If
 quantiles will be used to generate the grid of joint values for which the
 partial dependence is computed.}
 
-\item{probs}{Numeric vector of probabilities with values in [0,1]. (Values up
+\item{probs}{Numeric vector of probabilities with values in \verb{[0, 1]}. (Values up
 to 2e-14 outside that range are accepted and moved to the nearby endpoint.)
 Default is \code{1:9/10} which corresponds to the deciles of the predictor
 variables. These specify which quantiles to use for the continuous predictors
@@ -136,16 +139,18 @@ on a scale similar to the logit. Default is \code{FALSE}.}
 traversal method described in Friedman (2001). This only applies to objects
 that inherit from class \code{"gbm"}. Default is \code{TRUE} which is much
 faster than the exact brute force approach used for all other models. (Based
-on the C++ code behind \code{\link[gbm]{plot.gbm}}.)}
+on the C++ code behind \code{\link[gbm:plot.gbm]{gbm::plot.gbm()}}.)}
 
 \item{plot}{Logical indicating whether to return a data frame containing the
 partial dependence values (\code{FALSE}) or plot the partial dependence
 function directly (\code{TRUE}). Default is \code{FALSE}. See
-\code{\link{plotPartial}} for plotting details.}
+\code{\link[=plotPartial]{plotPartial()}} for plotting details.}
 
 \item{plot.engine}{Character string specifying which plotting engine to use
-whenever \code{plot = TRUE}. Options include \code{"lattice"} (default) or
-\code{"ggplot2"}.}
+whenever \code{plot = TRUE}. Options include \code{"tinyplot"} (default;
+lightweight base R graphics via the
+\href{https://grantmcdermott.com/tinyplot/}{tinyplot} package) or
+\code{"lattice"}.}
 
 \item{smooth}{Logical indicating whether or not to overlay a LOESS smooth.
 Default is \code{FALSE}.}
@@ -171,7 +176,7 @@ level plot. Only used when \code{levelplot = TRUE}. Default is \code{FALSE}.}
 \item{contour.color}{Character string specifying the color to use for the
 contour lines when \code{contour = TRUE}. Default is \code{"white"}.}
 
-\item{alpha}{Numeric value in \code{[0, 1]} specifying the opacity alpha (
+\item{alpha}{Numeric value in \verb{[0, 1]} specifying the opacity alpha (
 most useful when plotting ICE/c-ICE curves). Default is 1 (i.e., no
 transparency). In fact, this option only affects ICE/c-ICE curves and level
 plots.}
@@ -190,6 +195,21 @@ from class \code{"matrix"} or \code{"dgCMatrix"}.}
 in \code{pred.grid} has the correct class, levels, etc. Default is
 \code{TRUE}.}
 
+\item{batch.size}{Optional positive integer specifying the (approximate)
+maximum number of rows to score per call to \code{\link[stats:predict]{stats::predict()}}. By
+default (\code{batch.size = NULL}), \code{partial()} calls
+\code{\link[stats:predict]{stats::predict()}} once per grid point (i.e., \code{nrow(train)}
+rows at a time). Specifying a larger batch size (e.g.,
+\code{batch.size = 1e6}) stacks multiple grid points into a single call to
+\code{\link[stats:predict]{stats::predict()}}, which is often substantially faster since it
+avoids the per-call overhead of most prediction methods, at the cost of
+additional memory. Requires the prediction function to return one prediction
+per row of \code{newdata}, so it cannot be used with a \code{pred.fun} that
+aggregates its own predictions. Prediction names are also ignored when
+batching (i.e., \code{yhat.id} will always contain integer IDs). Ignored
+whenever the recursive method is used (i.e., for \code{"gbm"} objects with
+\code{recursive = TRUE}).}
+
 \item{progress}{Logical indicating whether or not to display a text-based
 progress bar. Default is \code{FALSE}.}
 
@@ -198,7 +218,15 @@ parallel using a backend provided by the \code{foreach} package. Default is
 \code{FALSE}.}
 
 \item{paropts}{List containing additional options to be passed onto
-\code{\link[foreach]{foreach}} when \code{parallel = TRUE}.}
+\code{\link[foreach:foreach]{foreach::foreach()}} when \code{parallel = TRUE}.}
+
+\item{frac}{Numeric value in (0, 1] specifying the fraction of the training
+data to randomly sample (without replacement) before computing the partial
+dependence function. Default is \code{1} (i.e., use all of the training
+data). Mostly useful for reducing the number of ICE curves and/or
+computation time; use \code{\link[base:Random]{base::set.seed()}} for reproducibility.
+Ignored whenever the recursive method is used (i.e., for \code{"gbm"}
+objects with \code{recursive = TRUE}).}
 }
 \value{
 By default, \code{partial} returns an object of class
@@ -206,12 +234,15 @@ By default, \code{partial} returns an object of class
 \code{center = FALSE} then an object of class \code{c("data.frame", "ice")}
 is returned. If \code{ice = TRUE} and \code{center = TRUE} then an object of
 class \code{c("data.frame", "cice")} is returned. These three classes
-determine the behavior of the \code{plotPartial} function which is
-automatically called whenever \code{plot = TRUE}. Specifically, when
-\code{plot = TRUE}, a \code{"trellis"} object is returned (see
-\code{\link[lattice]{lattice}} for details); the \code{"trellis"} object will
-also include an additional attribute, \code{"partial.data"}, containing the
-data displayed in the plot.
+determine the behavior of the plotting functions that are automatically
+called whenever \code{plot = TRUE}. Specifically, when \code{plot = TRUE}
+and \code{plot.engine = "tinyplot"} (the default), the plot is drawn
+directly (as a side effect) and the data frame of partial dependence values
+is returned invisibly. When \code{plot = TRUE} and
+\code{plot.engine = "lattice"}, a \code{"trellis"} object is returned (see
+\strong{lattice} for details); the \code{"trellis"} object
+will also include an additional attribute, \code{"partial.data"}, containing
+the data displayed in the plot.
 }
 \description{
 Compute partial dependence functions (i.e., marginal effects) for various
@@ -241,7 +272,7 @@ If \code{ice = TRUE} or the prediction function given to \code{pred.fun}
 returns a prediction for each observation in \code{newdata}, then the result
 will be a curve for each observation. These are called individual conditional
 expectation (ICE) curves; see Goldstein et al. (2015) and
-\code{\link[ICEbox]{ice}} for details.
+\code{\link[ICEbox:ice]{ICEbox::ice()}} for details.
 }
 \examples{
 \dontrun{
@@ -266,14 +297,13 @@ partial(boston.rf, pred.var = "lstat", plot = TRUE, rug = TRUE)
 partial(boston.rf, pred.var = c("lstat", "rm"), grid.resolution = 40,
         plot = TRUE, chull = TRUE, progress = TRUE)
 
-# The plotPartial function offers more flexible plotting
+# The plot method produces lightweight base R graphics via the tinyplot
+# package by default; set `lattice = TRUE` for lattice graphics (e.g., for
+# 3-D surfaces or paneled three-predictor displays)
 pd <- partial(boston.rf, pred.var = c("lstat", "rm"), grid.resolution = 40)
-plotPartial(pd, levelplot = FALSE, zlab = "cmedv", drape = TRUE,
-            colorkey = FALSE, screen = list(z = -20, x = -60))
-
-# The autplot function can be used to produce graphics based on ggplot2
-library(ggplot2)
-autoplot(pd, contour = TRUE, legend.title = "Partial\ndependence")
+plot(pd, contour = TRUE)
+plot(pd, lattice = TRUE, levelplot = FALSE, zlab = "cmedv", drape = TRUE,
+     colorkey = FALSE, screen = list(z = -20, x = -60))
 
 #
 # Individual conditional expectation (ICE) curves
@@ -281,15 +311,15 @@ autoplot(pd, contour = TRUE, legend.title = "Partial\ndependence")
 
 # Use partial to obtain ICE/c-ICE curves
 rm.ice <- partial(boston.rf, pred.var = "rm", ice = TRUE)
-plotPartial(rm.ice, rug = TRUE, train = boston, alpha = 0.2)
-autoplot(rm.ice, center = TRUE, alpha = 0.2, rug = TRUE, train = boston)
+plot(rm.ice, rug = TRUE, train = boston, alpha = 0.2)
+plot(rm.ice, center = TRUE, alpha = 0.2, rug = TRUE, train = boston)
 
 #
 # Classification example (requires randomForest package to run)
 #
 
-# Fit a random forest to the Pima Indians diabetes data
-data (pima)  # load the boston housing data
+# Fit a random forest to the (synthetic) diabetes data
+data (pima)  # load the synthetic diabetes data
 set.seed(102)  # for reproducibility
 pima.rf <- randomForest(diabetes ~ ., data = pima, na.action = na.omit)
 
@@ -304,10 +334,10 @@ partial(pima.rf, pred.var = "glucose", prob = TRUE, plot = TRUE,
 }
 \references{
 J. H. Friedman. Greedy function approximation: A gradient boosting machine.
-\emph{Annals of Statistics}, \bold{29}: 1189-1232, 2001.
+\emph{Annals of Statistics}, \strong{29}: 1189-1232, 2001.
 
 Goldstein, A., Kapelner, A., Bleich, J., and Pitkin, E., Peeking Inside the
 Black Box: Visualizing Statistical Learning With Plots of Individual
 Conditional Expectation. (2014) \emph{Journal of Computational and Graphical
-Statistics}, \bold{24}(1): 44-65, 2015.
+Statistics}, \strong{24}(1): 44-65, 2015.
 }

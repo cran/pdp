@@ -1,6 +1,142 @@
-# pdp 0.8.3
+# pdp 0.10.0
 
-## Fixed
+## Breaking changes
+
+* Removed `topPredictors()`, which had been deprecated since pdp 0.8.0; use
+  the [vip](https://bgreenwell.github.io/vip/) package to identify important
+  predictors instead.
+
+* `pima` now contains synthetic data from `mlbench::SynthDiabetes2`, replacing
+  the original Pima Indians diabetes data that mlbench withdrew over consent
+  concerns; same name and columns, different values.
+
+
+# pdp 0.9.1
+
+## Deprecations
+
+* `plotPartial()` is deprecated in favor of the consolidated `plot()`
+interface: the `plot()` methods gained a `lattice` argument, so
+`plot(..., lattice = TRUE)` now produces the same lattice-based displays
+(including 3-D wireframe surfaces and paneled three-predictor plots).
+`plotPartial()` continues to work (with a warning) but will be removed in a
+future release.
+
+## Bug fixes
+
+* Plotting now works for non-syntactic predictor names (e.g., names containing
+dashes or spaces) in both the tinyplot and lattice engines
+[(#113)](https://github.com/bgreenwell/pdp/issues/113).
+
+* `partial(chull = TRUE)` no longer fails for sparse (`"dgCMatrix"`) training
+data [(#77)](https://github.com/bgreenwell/pdp/issues/77).
+
+* Plotting multi-predictor output from `pred.fun` (i.e., objects with a
+`yhat.id` column and more than one predictor) now throws an informative error
+instead of producing a nonsense display
+[(#111)](https://github.com/bgreenwell/pdp/issues/111),
+[(#112)](https://github.com/bgreenwell/pdp/issues/112).
+
+* Failing to recover the training data (e.g., for recent **xgboost** models
+when `train` is not supplied) now always produces the informative "please
+supply the training data" error rather than a cryptic `match.call()` failure
+[(#137)](https://github.com/bgreenwell/pdp/issues/137).
+
+## New features
+
+* `pred.var` can now be omitted whenever `pred.grid` is supplied; it defaults
+to `colnames(pred.grid)`
+[(#122)](https://github.com/bgreenwell/pdp/issues/122).
+
+* New `frac` argument in `partial()` for randomly sampling a fraction of the
+training data before computing the partial dependence function; mostly useful
+for reducing the number of ICE curves and/or computation time
+[(#74)](https://github.com/bgreenwell/pdp/issues/74).
+
+* New `color.by` argument in the `plot()` methods for coloring ICE/c-ICE
+curves by another feature [(#81)](https://github.com/bgreenwell/pdp/issues/81).
+
+* New `bars` argument in `plot.partial()` for displaying factor predictors as
+bar plots instead of points
+[(#132)](https://github.com/bgreenwell/pdp/issues/132).
+
+* `exemplar()` gained a `cats` argument for matrix-like objects so categorical
+columns are summarized by their most frequent value (rather than a rounded
+median); used by `partial(approx = TRUE)`
+[(#115)](https://github.com/bgreenwell/pdp/issues/115).
+
+## Miscellaneous
+
+* Removed the (long stale) `slowtests/` directory; its coverage is redundant
+with the `tinytest` suite and the new vignettes.
+
+* Pruned Suggests packages that were no longer used anywhere in the package
+(**adabag**, **AmesHousing**, **Cubist**, **ipred**, **mda**, **partykit**,
+and **vip**).
+
+
+# pdp 0.9.0
+
+## Breaking changes
+
+* The ggplot2-based `autoplot()` methods have been removed in favor of new,
+lightweight base R `plot()` methods built on
+[tinyplot](https://grantmcdermott.com/tinyplot/). Consequently,
+`partial()`'s `plot.engine` argument now accepts `"tinyplot"` in place of
+`"ggplot2"`, and **pdp** no longer depends on **ggplot2** or **rlang**.
+
+* `"tinyplot"` is now the default plotting engine for
+`partial(..., plot = TRUE)`; note that it draws the plot directly (as a side
+effect) and returns the data frame of partial dependence values invisibly.
+Use `plot.engine = "lattice"` for the previous behavior (i.e., a returned
+`"trellis"` object).
+
+## Bug fixes
+
+* Fixed a serious bug in the recursive (i.e., weighted tree traversal) method
+for `"gbm"` objects that produced incorrect partial dependence values for
+factor predictors; the factor levels were passed to the underlying C++ routine
+using 1-based (rather than 0-based) integer codes, shifting each level's value
+and reading out of bounds for the last level.
+
+* `partial()` no longer errors for `"gbm"` objects fit with list-valued
+distributions (e.g., `distribution = list(name = "quantile", alpha = 0.5)`).
+
+* The convex hull displayed by `plotPartial(chull = TRUE)` is now correct
+whenever the training data contain missing values.
+
+* Conflicting grid options (e.g., specifying both `grid.resolution` and
+`quantiles`) now always throw an error, even when all of the predictors listed
+in `pred.var` are factors.
+
+* Removed a stray `"FALSE"` that was appended to the message displayed when
+requesting a progress bar with the recursive method.
+
+## New features
+
+* New tinyplot-based `plot()` methods for `"partial"`, `"ice"`, and `"cice"`
+objects; see `?plot.partial` for details and examples.
+
+* New `batch.size` argument in `partial()` for scoring multiple grid points
+per call to `predict()` (i.e., batching); this is often substantially faster
+than the default one-call-per-grid-point approach at the cost of additional
+memory. For example, try `batch.size = 1e6` to score (roughly) one million
+rows per call.
+
+## Miscellaneous
+
+* **foreach** was moved from Imports to Suggests; it is now only required for
+parallel execution (i.e., whenever `parallel = TRUE`).
+
+* Removed unused packages from Suggests (**keras**, **reticulate**, and
+**dplyr**).
+
+* `topPredictors()` (which is deprecated) now throws an informative error when
+**caret** is not installed.
+
+* Internal cleanup: the brute force method (`pardep()`) was consolidated from
+four nearly identical loops into one, and the prediction wrappers in
+`get_predictions.R` now share a common helper.
 
 * Fixed failing tests due to changes in the `xgboost` package.
 
@@ -49,7 +185,7 @@
 
 * Removed the `palette` and `alpha` arguments from `plotPartial()` and `autoplot()`; the latter just got absorbed into the `...` argument. By default, `plotPartial()`'s `col.regions` argument now corresponds to `grDevices::hcl.colors(100)`, which defaults to the same viridis color palette as before, just without the dependency.
 
-* `topPredictors()` is now deprecated and will be removed in the next update. Users are advised to use the [vip](https://github.com/koalaverse/vip) package instead.
+* `topPredictors()` is now deprecated and will be removed in the next update. Users are advised to use the [vip](https://github.com/bgreenwell/vip) package instead.
 
 ## Minor changes
 

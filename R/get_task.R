@@ -87,10 +87,17 @@ get_task.fda <- function(object) {
 
 #' @keywords internal
 get_task.gbm <- function(object) {
-  if (object$distribution %in%
-      c("coxph", "gaussian", "laplace", "tdist", "gamma", "poisson", "tweedie")) {
+  # `object$distribution` is a list (e.g., `list(name = "quantile", alpha =
+  # 0.5)`), but allow for a plain character string just in case
+  dist.name <- if (is.list(object$distribution)) {
+    object$distribution$name
+  } else {
+    object$distribution
+  }
+  if (dist.name %in% c("coxph", "gaussian", "laplace", "tdist", "gamma",
+                       "poisson", "tweedie", "quantile")) {
     "regression"
-  } else if (object$distribution %in%
+  } else if (dist.name %in%
              c("bernoulli", "huberized", "multinomial", "adaboost")) {
     "classification"
   } else {

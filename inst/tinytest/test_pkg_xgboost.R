@@ -35,17 +35,15 @@ if (require(xgboost, quietly = TRUE)) {
   ice1 <- partial(fit1, pred.var = "x.3", ice = TRUE, train = X1)
 
   # Expectations
-  pdp1 <- partial(fit1, pred.var = "x.3", train = X1, plot = TRUE)
-  pdp2 <- partial(fit1, pred.var = "x.3", train = X1, plot = TRUE,
-                  plot.engine = "ggplot2")
+  pdp1 <- partial(fit1, pred.var = "x.3", train = X1, plot = TRUE,
+                  plot.engine = "lattice")
+  pdp2 <- partial(fit1, pred.var = "x.3", train = X1, plot = TRUE)
+  # Default engine (tinyplot) draws the plot and returns the data invisibly
   expect_true(inherits(pdp1, what = "trellis"))
-  expect_true(inherits(pdp2, what = "ggplot"))
+  expect_true(inherits(pdp2, what = "partial"))
   expect_error(partial(fit1, pred.var = "x.3"))
   expect_true(inherits(pd1, what = "partial"))
   expect_true(inherits(ice1, what = "ice"))
-
-  # Display plots side by side
-  grid.arrange(pdp1, pdp2, nrow = 1)
 
 
   # Poisson model w/ log link --------------------------------------------------
@@ -74,8 +72,10 @@ if (require(xgboost, quietly = TRUE)) {
                    train = mtcars[, -11L], outputmargin = TRUE)
   pd2.4 <- partial(fit2, pred.var = "mpg", inv.link = exp,
                    train = mtcars[, -11L], outputmargin = TRUE, ice = TRUE)
-  grid.arrange(autoplot(pd2.1), autoplot(pd2.2),
-               autoplot(pd2.3), autoplot(pd2.4), nrow = 2)
+  plot(pd2.1)
+  plot(pd2.2)
+  plot(pd2.3)
+  plot(pd2.4)
 
   # Expectations
   expect_true(inherits(pd2.1, what = "partial"))

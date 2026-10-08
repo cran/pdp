@@ -1,65 +1,70 @@
-#' Plotting Partial Dependence Functions
+#' Plotting Partial Dependence Functions (deprecated)
 #'
 #' Plots partial dependence functions (i.e., marginal effects) using
-#' \code{\link[lattice]{lattice}} graphics.
+#' **lattice** graphics.
 #'
-#' @param object An object that inherits from the \code{"partial"} class.
+#' **Deprecated:** `plotPartial()` is deprecated and will be removed
+#' in a future release; please use `plot(..., lattice = TRUE)` instead,
+#' which produces the same displays through a single interface (see
+#' [plot.partial()] for details).
+#'
+#' @param object An object that inherits from the `"partial"` class.
 #'
 #' @param center Logical indicating whether or not to produce centered ICE
-#' curves (c-ICE curves). Only useful when \code{object} represents a set of ICE
-#' curves; see \code{\link[pdp]{partial}} for details. Default is \code{FALSE}.
+#' curves (c-ICE curves). Only useful when `object` represents a set of ICE
+#' curves; see [pdp::partial()] for details. Default is `FALSE`.
 #'
 #' @param plot.pdp Logical indicating whether or not to plot the partial
-#' dependence function on top of the ICE curves. Default is \code{TRUE}.
+#' dependence function on top of the ICE curves. Default is `TRUE`.
 #'
 #' @param pdp.col Character string specifying the color to use for the partial
-#' dependence function when \code{plot.pdp = TRUE}. Default is \code{"red"}.
+#' dependence function when `plot.pdp = TRUE`. Default is `"red"`.
 #'
 #' @param pdp.lwd Integer specifying the line width to use for the partial
-#' dependence function when \code{plot.pdp = TRUE}. Default is \code{1}. See
-#' \code{\link[graphics]{par}} for more details.
+#' dependence function when `plot.pdp = TRUE`. Default is `1`. See
+#' [graphics::par()] for more details.
 #'
 #' @param pdp.lty Integer or character string specifying the line type to use
-#' for the partial dependence function when  \code{plot.pdp = TRUE}. Default is
-#' \code{1}. See \code{\link[graphics]{par}} for more details.
+#' for the partial dependence function when  `plot.pdp = TRUE`. Default is
+#' `1`. See [graphics::par()] for more details.
 #'
 #' @param smooth Logical indicating whether or not to overlay a LOESS smooth.
-#' Default is \code{FALSE}.
+#' Default is `FALSE`.
 #'
 #' @param rug Logical indicating whether or not to include rug marks on the
-#' predictor axes. Default is \code{FALSE}.
+#' predictor axes. Default is `FALSE`.
 #'
 #' @param chull Logical indicating whether or not to restrict the first two
-#' variables in \code{pred.var} to lie within the convex hull of their training
-#' values; this affects \code{pred.grid}. Default is \code{FALSE}.
+#' variables in `pred.var` to lie within the convex hull of their training
+#' values; this affects `pred.grid`. Default is `FALSE`.
 #'
 #' @param levelplot Logical indicating whether or not to use a false color level
-#' plot (\code{TRUE}) or a 3-D surface (\code{FALSE}). Default is \code{TRUE}.
+#' plot (`TRUE`) or a 3-D surface (`FALSE`). Default is `TRUE`.
 #'
 #' @param contour Logical indicating whether or not to add contour lines to the
-#' level plot. Only used when \code{levelplot = TRUE}. Default is \code{FALSE}.
+#' level plot. Only used when `levelplot = TRUE`. Default is `FALSE`.
 #'
 #' @param contour.color Character string specifying the color to use for the
-#' contour lines when \code{contour = TRUE}. Default is \code{"white"}.
+#' contour lines when `contour = TRUE`. Default is `"white"`.
 #'
 #' @param col.regions Vector of colors to be passed on to
-#' \code{\link[lattice]{levelplot}}'s \code{col.region} argument. Defaults to
-#' \code{grDevices::hcl.colors(100)} (which is the same viridis color palette
+#' [lattice::levelplot()]'s `col.region` argument. Defaults to
+#' `grDevices::hcl.colors(100)` (which is the same viridis color palette
 #' used in the past).
 #'
 #' @param number Integer specifying the number of conditional intervals to use
-#' for the continuous panel variables. See \code{\link[graphics]{co.intervals}}
-#' and \code{\link[lattice]{equal.count}} for further details.
+#' for the continuous panel variables. See [graphics::co.intervals()]
+#' and [lattice::equal.count()] for further details.
 #'
 #' @param overlap The fraction of overlap of the conditioning variables. See
-#' \code{\link[graphics]{co.intervals}} and \code{\link[lattice]{equal.count}}
+#' [graphics::co.intervals()] and [lattice::equal.count()]
 #' for further details.
 #'
 #' @param train Data frame containing the original training data. Only required
-#' if \code{rug = TRUE} or \code{chull = TRUE}.
+#' if `rug = TRUE` or `chull = TRUE`.
 #'
-#' @param ... Additional optional arguments to be passed onto \code{dotplot},
-#' \code{levelplot}, \code{xyplot}, or \code{wireframe}.
+#' @param ... Additional optional arguments to be passed onto `dotplot`,
+#' `levelplot`, `xyplot`, or `wireframe`.
 #'
 #' @importFrom lattice dotplot equal.count levelplot panel.dotplot
 #'
@@ -104,6 +109,11 @@
 #' grid.arrange(p1, p2, ncol = 2)
 #' }
 plotPartial <- function(object, ...) {
+  .Deprecated(
+    msg = paste("pdp::plotPartial() is deprecated and will be removed in a",
+                "future release. Please use plot(..., lattice = TRUE)",
+                "instead; see ?pdp::plot.partial for details.")
+  )
   UseMethod("plotPartial")
 }
 
@@ -164,7 +174,7 @@ plotPartial.partial <- function(
 
   # Throw error if too difficult to plot
   if ((!multi && !(nx %in% 1:3)) || (multi && (nx > 1))) {
-    stop("Too many variables to plot. Try using lattice or ggplot2 directly.")
+    stop("Too many variables to plot. Try using lattice directly.")
   }
 
   # Determine which type of plot to draw based on the number of predictors
@@ -207,9 +217,36 @@ plotPartial.partial <- function(
 }
 
 
+# Add a rug display (min/max and deciles) for one or two predictors to the
+# current lattice panel
+#' @keywords internal
+panel_rug_quantiles <- function(train, x.name, y.name = NULL) {
+  if (is.null(train)) {
+    stop("The training data must be supplied for rug display.")
+  }
+  deciles <- function(name) {
+    stats::quantile(train[, name, drop = TRUE], probs = 0:10/10, na.rm = TRUE)
+  }
+  if (is.null(y.name)) {
+    panel.rug(deciles(x.name), col = 1)
+  } else {
+    panel.rug(x = deciles(x.name), y = deciles(y.name), col = 1)
+  }
+}
+
+
 #' @keywords internal
 plot_ice_curves <- function(object, plot.pdp, center, pdp.col, pdp.lwd, pdp.lty,
                             rug, train, ...) {
+
+  # Each curve should vary over a single predictor; anything else cannot be
+  # displayed sensibly and is better plotted manually
+  if (ncol(object) - 2L > 1L) {
+    stop("Cannot automatically plot individual curves for multiple ",
+         "predictors; each curve would vary over a multi-dimensional grid. ",
+         "Try plotting the returned data manually (e.g., by filtering or ",
+         "faceting on the additional predictors).", call. = FALSE)
+  }
 
   # Determine if ICE curves should be centered
   if (center) {
@@ -225,7 +262,7 @@ plot_ice_curves <- function(object, plot.pdp, center, pdp.col, pdp.lwd, pdp.lty,
 
   # Plot ICE curves
   xyplot(
-    stats::as.formula(paste("yhat ~", names(object)[1L])), data = object,
+    stats::as.formula(paste("yhat ~", backtick(names(object)[1L]))), data = object,
     groups = object$yhat.id, type = plot.type, ...,
     panel = function(xx, yy, ...) {
       panel.xyplot(xx, yy, col = 1, ...)
@@ -237,13 +274,7 @@ plot_ice_curves <- function(object, plot.pdp, center, pdp.col, pdp.lwd, pdp.lty,
         )
       }
       if (rug && is.numeric(object[[1L]])) {
-        if (is.null(train)) {
-          stop("The training data must be supplied for rug display.")
-        } else {
-          panel.rug(stats::quantile(train[, names(object)[1L], drop = TRUE],
-                                    probs = 0:10/10, na.rm = TRUE),
-                    col = 1)
-        }
+        panel_rug_quantiles(train, x.name = names(object)[1L])
       }
 })
 
@@ -258,20 +289,14 @@ plot_one_predictor_pdp <- function(object, smooth, rug, train = NULL, ...) {
 
     # Draw a line plot
     xyplot(
-      stats::as.formula(paste("yhat ~", names(object)[1L])), data = object,
+      stats::as.formula(paste("yhat ~", backtick(names(object)[1L]))), data = object,
       type = "l", ..., panel = function(xx, yy, ...) {
         panel.xyplot(xx, yy, col = 1, ...)
         if (smooth) {
           panel.loess(xx, yy, ...)
         }
         if (isTRUE(rug)) {
-          if (is.null(train)) {
-            stop("The training data must be supplied for rug display.")
-          } else {
-            panel.rug(stats::quantile(train[, names(object)[1L], drop = TRUE],
-                                      probs = 0:10/10, na.rm = TRUE),
-                      col = 1)
-          }
+          panel_rug_quantiles(train, x.name = names(object)[1L])
         }
     })
 
@@ -279,7 +304,7 @@ plot_one_predictor_pdp <- function(object, smooth, rug, train = NULL, ...) {
 
     # Draw a Cleveland dot plot
     dotplot(
-      stats::as.formula(paste("yhat ~", names(object)[1L])), data = object, ...
+      stats::as.formula(paste("yhat ~", backtick(names(object)[1L]))), data = object, ...
     )
 
   }
@@ -297,7 +322,7 @@ plot_two_predictor_pdp <- function(
 
     # Draw a Cleveland dot plot
     dotplot(stats::as.formula(
-      paste("yhat ~", paste(names(object)[1L:2L], collapse = "|"))
+      paste("yhat ~", paste(backtick(names(object)[1L:2L]), collapse = "|"))
     ), data = object, ...)
 
   } else if (is.factor(object[[1L]]) || is.factor(object[[2L]])) {
@@ -305,11 +330,11 @@ plot_two_predictor_pdp <- function(
     # Lattice plot formula
     form <- if (is.factor(object[[1L]])) {
       stats::as.formula(
-        paste("yhat ~", paste(names(object)[2L:1L], collapse = "|"))
+        paste("yhat ~", paste(backtick(names(object)[2L:1L]), collapse = "|"))
       )
     } else {
       stats::as.formula(
-        paste("yhat ~", paste(names(object)[1L:2L], collapse = "|"))
+        paste("yhat ~", paste(backtick(names(object)[1L:2L]), collapse = "|"))
       )
     }
 
@@ -321,13 +346,7 @@ plot_two_predictor_pdp <- function(
           panel.loess(xx, yy, ...)
         }
         if (isTRUE(rug)) {
-          if (is.null(train)) {
-            stop("The training data must be supplied for rug display.")
-           } else {
-             panel.rug(stats::quantile(train[, names(object)[1L], drop = TRUE],
-                                       probs = 0:10/10, na.rm = TRUE),
-                       col = 1)
-           }
+          panel_rug_quantiles(train, x.name = names(object)[1L])
         }
     })
 
@@ -335,7 +354,7 @@ plot_two_predictor_pdp <- function(
 
       # Lattice plot formula
       form <- stats::as.formula(
-        paste("yhat ~", paste(names(object)[1L:2L], collapse = "*"))
+        paste("yhat ~", paste(backtick(names(object)[1L:2L]), collapse = "*"))
       )
 
       # Define color regions
@@ -352,22 +371,10 @@ plot_two_predictor_pdp <- function(
           col = contour.color, ...,
           panel = function(xx, yy, ...) {
             panel.levelplot(xx, yy, ...)
-            if (rug || chull) {
-              if (is.null(train)) {
-                stop(
-                  "The training data must be supplied for convex hull display."
-                )
-              }
-            }
             # Add a rug display
             if (isTRUE(rug)) {
-              panel.rug(
-                x = stats::quantile(train[, names(object)[1L], drop = TRUE],
-                                    probs = 0:10/10, na.rm = TRUE),
-                y = stats::quantile(train[, names(object)[2L], drop = TRUE],
-                                    probs = 0:10/10, na.rm = TRUE),
-                col = 1
-              )
+              panel_rug_quantiles(train, x.name = names(object)[1L],
+                                  y.name = names(object)[2L])
             }
             # Plot the convex hull of the predictor space of interest
             if (chull) {
@@ -376,11 +383,10 @@ plot_two_predictor_pdp <- function(
                   "The training data must be supplied for convex hull display."
                 )
               }
-              hpts <- grDevices::chull(
-                stats::na.omit(train[names(object)[1L:2L]])
-              )
+              X <- stats::na.omit(train[names(object)[1L:2L]])
+              hpts <- grDevices::chull(X)
               hpts <- c(hpts, hpts[1])
-              panel.lines(train[hpts, names(object)[1L:2L]], col = 1)
+              panel.lines(X[hpts, ], col = 1)
             }
         })
 
@@ -414,8 +420,8 @@ plot_three_predictor_pdp <- function(
 
     # Lattice plot formula
     form <- stats::as.formula(
-      paste("yhat ~", names(object)[1L], "|",
-            paste(names(object)[2L:nx], collapse = "*"))
+      paste("yhat ~", backtick(names(object)[1L]), "|",
+            paste(backtick(names(object)[2L:nx]), collapse = "*"))
     )
 
     # Produce a paneled dotplot
@@ -426,8 +432,8 @@ plot_three_predictor_pdp <- function(
     # Lattice plot formula
     form <- if (is.factor(object[[1L]])) {
       stats::as.formula(
-        paste("yhat ~", names(object)[2L], "|",
-              paste(names(object)[c(1L, 3L:nx)], collapse = "*"))
+        paste("yhat ~", backtick(names(object)[2L]), "|",
+              paste(backtick(names(object)[c(1L, 3L:nx)]), collapse = "*"))
       )
     } else {
       stats::as.formula(
@@ -445,13 +451,7 @@ plot_three_predictor_pdp <- function(
           panel.loess(xx, yy, ...)
         }
         if (isTRUE(rug)) {
-          if (is.null(train)) {
-            stop("The training data must be supplied for rug display.")
-          } else {
-            panel.rug(stats::quantile(train[, names(object)[1L], drop = TRUE],
-                                      probs = 0:10/10, na.rm = TRUE),
-                      col = 1)
-          }
+          panel_rug_quantiles(train, x.name = names(object)[1L])
         }
     })
 
@@ -459,8 +459,8 @@ plot_three_predictor_pdp <- function(
 
     # Lattice plot formula
     form <- stats::as.formula(
-      paste("yhat ~", paste(names(object)[1L:2L], collapse = "*"), "|",
-            paste(names(object)[3L:nx], collapse = "*"))
+      paste("yhat ~", paste(backtick(names(object)[1L:2L]), collapse = "*"),
+            "|", paste(backtick(names(object)[3L:nx]), collapse = "*"))
     )
 
     # Define color regions
